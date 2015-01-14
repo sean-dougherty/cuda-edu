@@ -215,6 +215,7 @@ namespace edu {
 
         cudaError_t cudaGetDeviceCount(int *count) {
             *count = 1;
+            ret_err(cudaSuccess);
         }
 
         cudaError_t cudaGetDeviceProperties(cudaDeviceProp *prop,
@@ -236,6 +237,8 @@ namespace edu {
             prop->maxGridSize[1] = 65535;
             prop->maxGridSize[2] = 65535;
             prop->warpSize = 32;
+
+            ret_err(cudaSuccess);
         }
 
         cudaError_t check_kernel_config(dim3 gridDim, dim3 blockDim) {
