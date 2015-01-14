@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+
+import os
+import os.path
+import re
+import sys
+
+include = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'include')
+
+path_in = sys.argv[1]
+path_out = os.path.join(os.path.dirname(path_in), '.' + os.path.basename(path_in) + "-cueducc.cpp")
+path_bin = os.path.splitext(path_in)[0]
+
+src_in = open(path_in).read()
+src_out = re.sub("([a-zA-Z_0-9]+)<<<(.+)>>>([^\(]*)\((.+);",
+				 r"{driver_t driver(\2); driver.invoke_kernel\3(\1,\4;}",
+				 src_in,
+				 flags = re.MULTILINE | re.DOTALL)
+
+f = open(path_out, "w")
+f.write('#line 1 "%s"\n' % path_in)
+f.write(src_out)
+f.close()
+
+cmd = 'g++ -I%s -std=c++11 -g -o %s %s -lpthread' % (include, path_bin, path_out)
+rc = os.system(cmd)
+sys.exit(0 if rc == 0 else 1)
