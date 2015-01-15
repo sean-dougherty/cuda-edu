@@ -23,7 +23,8 @@ namespace edu {
                         len,
                         PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS,
-                        0, 0);
+                        -1, // some systems require fd = -1 for anonymous
+                        0);
         }
 
         // true = succeed
