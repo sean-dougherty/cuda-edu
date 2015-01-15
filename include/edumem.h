@@ -108,10 +108,13 @@ namespace edu {
             return buf.addr;
         }
 
+#define warn_new() edu_warn("Unknown memory location, did you use new or shared_ptr/unique_ptr? Please use malloc() or cudaMallocHost() so that errors can be more easily detected by cuda-edu.");
         void dealloc(MemorySpace space, void *addr) {
             Buffer buf;
             BufferMap *bufmap;
-            edu_errif(!find_buf(addr, &buf, &bufmap));
+            if(!find_buf(addr, &buf, &bufmap)) {
+                edu_err("Invalid buffer.");
+            }
 
             if(space != buf.space) {
                 edu_err("Requested to free memory in " << space << ", but provided address in " << buf.space);
@@ -129,19 +132,27 @@ namespace edu {
             Buffer src_buf;
 
 #define __acquire(BUF, SPACE, PTR, DIR) {                               \
-                edu_errif(!find_buf(PTR, &BUF));                        \
-                if(BUF.space != SPACE) {                                \
-                    edu_err("Attempting to copy " << DIR << " " << SPACE \
-                            << " but provided address in " << BUF.space); \
+                if(!find_buf(PTR, &BUF)) {                              \
+                    if(SPACE == MemorySpace_Host) {                     \
+                        warn_new()                                      \
+                        BUF.addr = nullptr;                             \
+                    } else {                                            \
+                        edu_err("Invalid Device buffer specified.");    \
+                    }                                                   \
+                } else {                                                \
+                    if(BUF.space != SPACE) {                            \
+                        edu_err("Attempting to copy " << DIR << " " << SPACE \
+                                << " but provided address in " << BUF.space); \
+                    }                                                   \
+                    if(BUF.space != curr_space) {                       \
+                        BUF.activate();                                 \
+                    }                                                   \
+                    edu_errif(!BUF.valid(PTR, len));                    \
                 }                                                       \
-                if(BUF.space != curr_space) {                           \
-                    BUF.activate();                                     \
-                }                                                       \
-                edu_errif(!BUF.valid(PTR, len));                        \
             }
 
 #define __release(BUF) {                        \
-                if(BUF.space != curr_space) {   \
+                if(BUF.addr && (BUF.space != curr_space)) { \
                     BUF.deactivate();           \
                 }                               \
             }
