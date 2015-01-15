@@ -132,12 +132,12 @@ namespace edu {
         }
 
         cudaError_t cudaFree(void *ptr) {
-            mem::dealloc(ptr);
+            mem::dealloc(mem::MemorySpace_Device, ptr);
             ret_err(cudaSuccess);
         }
 
         cudaError_t cudaMallocHost(void **ptr, size_t length) {
-            void *result = malloc(length);
+            void *result = mem::alloc(mem::MemorySpace_Host, length);
             if(!result)
                 ret_err(Not_Enough_Memory);
             *ptr = result;
@@ -145,7 +145,7 @@ namespace edu {
         }
 
         cudaError_t cudaFreeHost(void *ptr) {
-            free(ptr);
+            mem::dealloc(mem::MemorySpace_Host, ptr);
             ret_err(cudaSuccess);
         }
 

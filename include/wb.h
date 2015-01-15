@@ -9,4 +9,4 @@ using namespace edu::wb;
 using namespace edu::cuda;
 
 #define malloc(len) edu::mem::alloc(edu::mem::MemorySpace_Host, len)
-#define free(ptr) edu::mem::dealloc(ptr)
+#define free(ptr) edu::mem::dealloc(edu::mem::MemorySpace_Host, ptr)

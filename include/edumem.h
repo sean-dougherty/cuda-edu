@@ -111,10 +111,14 @@ namespace edu {
             return buf.addr;
         }
 
-        void dealloc(void *addr) {
+        void dealloc(MemorySpace space, void *addr) {
             Buffer buf;
             BufferMap *bufmap;
             edu_errif(!find_buf(addr, &buf, &bufmap));
+
+            if(space != buf.space) {
+                edu_err("Requested to free memory in " << space << ", but provided address in " << buf.space);
+            }
 
             bufmap->erase(buf.addr);
             buf.dealloc();

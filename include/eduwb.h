@@ -105,7 +105,7 @@ namespace edu {
 
             cout << "Solution correct." << endl;
 
-            mem::dealloc(expected);
+            mem::dealloc(mem::MemorySpace_Host, expected);
         }
 
         void wbSolution(wbArg_t args, void *output, int rows_, int cols_) {
@@ -130,7 +130,7 @@ namespace edu {
 
             cout << "Solution correct." << endl;
 
-            mem::dealloc(expected);
+            mem::dealloc(mem::MemorySpace_Host, expected);
         }
 
         enum wbLog_level_t {
