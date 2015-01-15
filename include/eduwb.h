@@ -16,6 +16,8 @@ namespace edu {
         struct wbArg_t {
             int argc;
             char **argv;
+            vector<unique_ptr<char>> input_paths;
+            unique_ptr<char> output_path;
 
             string data_dir() {
                 if(argc != 2) {
@@ -26,19 +28,29 @@ namespace edu {
                 }
                 return argv[1];
             }
-            string get_input_path(int index) {
-                stringstream ss;
-                ss << data_dir() << "/input" << index << ".raw";
-                return ss.str();
+            char *get_input_path(int index) {
+                if( (index >= input_paths.size()) || !input_paths[index] ) {
+                    stringstream ss;
+                    ss << data_dir() << "/input" << index << ".raw";
+                    if(input_paths.size() <= index) {
+                        input_paths.resize(index+1);
+                    }
+                    input_paths[index] = unique_ptr<char>(strdup(ss.str().c_str()));
+                }
+
+                return input_paths[index].get();
             }
-            string get_output_path() {
-                stringstream ss;
-                ss << data_dir() << "/output.raw";
-                return ss.str();
+            char *get_output_path() {
+                if(!output_path) {
+                    stringstream ss;
+                    ss << data_dir() << "/output.raw";
+                    output_path = unique_ptr<char>(strdup(ss.str().c_str()));
+                }
+                return output_path.get();
             }
         };
 
-        typedef std::string wbFile_t;
+        typedef char *wbFile_t;
 
         float *read_data(string path, int *length) {
             ifstream in(path.c_str());
@@ -79,19 +91,47 @@ namespace edu {
             return {argc, argv};
         }
 
-        wbFile_t wbArg_getInputFile(wbArg_t args, int index) {
+        struct wbImage_t {
+            int width;
+            int height;
+            int channels; 
+        };
+
+        int wbImage_getWidth(wbImage_t &image) {
+            return image.width;
+        }
+        int wbImage_getHeight(wbImage_t &image) {
+            return image.height;
+        }
+        int wbImage_getChannels(wbImage_t &image) {
+            return image.channels;
+        }
+        float *wbImage_getData(wbImage_t &image) {
+            abort();
+        }
+        wbImage_t wbImage_new(int width, int height, int channels) {
+            abort();
+        }
+        wbImage_t wbImage_delete(wbImage_t &image) {
+            abort();
+        }
+        wbImage_t wbImport(char *f) {
+            abort();
+        }
+
+        char *wbArg_getInputFile(wbArg_t &args, int index) {
             return args.get_input_path(index);
         }
 
-        void *wbImport(wbFile_t f, int *length) {
+        void *wbImport(char *f, int *length) {
             return read_data(f, length);
         }
 
-        void *wbImport(wbFile_t f, int *rows, int *cols) {
+        void *wbImport(char *f, int *rows, int *cols) {
             return read_data(f, rows, cols);
         }
 
-        void wbSolution(wbArg_t args, void *output, int length) {
+        void wbSolution(wbArg_t &args, void *output, int length) {
             float *expected = read_data(args.get_output_path(), &length);
             float *actual = (float *)output;
 
@@ -108,7 +148,7 @@ namespace edu {
             mem::dealloc(mem::MemorySpace_Host, expected);
         }
 
-        void wbSolution(wbArg_t args, void *output, int rows_, int cols_) {
+        void wbSolution(wbArg_t &args, void *output, int rows_, int cols_) {
             int rows, cols;
             float *expected = read_data(args.get_output_path(), &rows, &cols);
             if(rows != rows_) {
@@ -131,6 +171,10 @@ namespace edu {
             cout << "Solution correct." << endl;
 
             mem::dealloc(mem::MemorySpace_Host, expected);
+        }
+
+        void wbSolution(wbArg_t &args, wbImage_t &image) {
+            abort();
         }
 
         enum wbLog_level_t {

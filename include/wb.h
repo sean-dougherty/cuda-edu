@@ -5,6 +5,8 @@
 #include <eduutil.h>
 #include <eduwb.h>
 
+#include <assert.h>
+
 using namespace edu::wb;
 using namespace edu::cuda;
 
