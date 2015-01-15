@@ -1,6 +1,7 @@
 #pragma once
 
 #include <edumem.h>
+#include <edupfm.h>
 
 #include <condition_variable>
 #include <cstring>
@@ -352,7 +353,5 @@ namespace edu {
             static Barrier barrier_##__LINE__; barrier_##__LINE__.sync(); \
         }
 #endif
-
-#define atomicAdd(ptr, val) __sync_fetch_and_add(ptr, val)
     }
 }

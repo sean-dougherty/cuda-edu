@@ -1,10 +1,11 @@
 #pragma once
 
+#include <edupfm.h>
+#include <eduutil.h>
+
 #include <cstring>
 #include <iostream>
 #include <map>
-#include <sys/mman.h>
-#include <eduutil.h>
 
 namespace edu {
     namespace mem {
@@ -30,11 +31,7 @@ namespace edu {
 
             static Buffer alloc(MemorySpace space, unsigned len) {
                 Buffer buf;
-                buf.addr = mmap(nullptr,
-                                len,
-                                PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_ANONYMOUS,
-                                0, 0);
+                buf.addr = pfm::alloc(len);
                 edu_errif(buf.addr == nullptr);
                 buf.len = len;
                 buf.space = space;
@@ -42,15 +39,15 @@ namespace edu {
             }
 
             void dealloc() {
-                edu_errif(0 != munmap(addr, len));
+                edu_errif(!pfm::dealloc(addr, len));
             }
 
             void activate() {
-                edu_errif(0 != mprotect(addr, len, PROT_READ | PROT_WRITE));
+                edu_errif(!pfm::set_mem_access(addr, len, pfm::MemAccess_ReadWrite));
             }
 
             void deactivate() {
-                edu_errif(0 != mprotect(addr, len, PROT_NONE));
+                edu_errif(!pfm::set_mem_access(addr, len, pfm::MemAccess_None));
             }
 
             bool valid(const void *addr, unsigned len) {
