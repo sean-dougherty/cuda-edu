@@ -1,5 +1,8 @@
 #pragma once
 
+#include <eduutil.h>
+#include <edumem.h>
+
 #include <cmath>
 #include <condition_variable>
 #include <cstdlib>
@@ -19,8 +22,6 @@ namespace edu {
 
 #define wbTime_start(x...)
 #define wbTime_stop(x...)
-
-#define edu_err(x...) {cerr << x << endl; exit(1);}
 
         struct wbArg_t {
             int argc;
@@ -55,7 +56,8 @@ namespace edu {
                 edu_err("Failed opening input: " << path);
             }
             in >> *length;
-            float *buf = (float *)malloc(*length * sizeof(float));
+            float *buf = (float *)mem::alloc(mem::MemorySpace_Host,
+                                             *length * sizeof(float));
             for(int i = 0; i < *length; i++) {
                 in >> buf[i];
                 if(!in) {
@@ -72,7 +74,8 @@ namespace edu {
             }
             in >> *rows;
             in >> *cols;
-            float *buf = (float *)malloc(*rows * *cols * sizeof(float));
+            float *buf = (float *)mem::alloc(mem::MemorySpace_Host,
+                                             *rows * *cols * sizeof(float));
             for(int i = 0; i < *rows * *cols; i++) {
                 in >> buf[i];
                 if(!in) {
@@ -99,11 +102,11 @@ namespace edu {
         }
 
         void wbSolution(wbArg_t args, void *output, int length) {
-            unique_ptr<float> expected(read_data(args.get_output_path(), &length));
+            float *expected = read_data(args.get_output_path(), &length);
             float *actual = (float *)output;
 
             for(int i = 0; i < length; i++) {
-                float e = expected.get()[i];
+                float e = expected[i];
                 float a = actual[i];
                 if( fabs(a - e) > (1e-3 * e) ) {
                     edu_err("Results mismatch at index " << i << ". Expected " << e << ", found " << a << ".");
@@ -111,11 +114,13 @@ namespace edu {
             }
 
             cout << "Solution correct." << endl;
+
+            mem::dealloc(expected);
         }
 
         void wbSolution(wbArg_t args, void *output, int rows_, int cols_) {
             int rows, cols;
-            unique_ptr<float> expected(read_data(args.get_output_path(), &rows, &cols));
+            float *expected = read_data(args.get_output_path(), &rows, &cols);
             if(rows != rows_) {
                 edu_err("Incorrect number of rows. Expected " << rows << ", found " << rows_);
             }
@@ -126,7 +131,7 @@ namespace edu {
             float *actual = (float *)output;
 
             for(int i = 0; i < (rows * cols); i++) {
-                float e = expected.get()[i];
+                float e = expected[i];
                 float a = actual[i];
                 if( fabs(a - e) > (1e-3 * e) ) {
                     edu_err("Results mismatch at index " << i << ". Expected " << e << ", found " << a << ".");
@@ -134,6 +139,8 @@ namespace edu {
             }
 
             cout << "Solution correct." << endl;
+
+            mem::dealloc(expected);
         }
 
         enum wbLog_level_t {
@@ -265,7 +272,7 @@ namespace edu {
         }
 
         cudaError_t cudaMalloc(void **ptr, size_t length) {
-            void *result = malloc(length);
+            void *result = mem::alloc(mem::MemorySpace_Device, length);
             if(!result)
                 ret_err(Not_Enough_Memory);
             *ptr = result;
@@ -273,7 +280,7 @@ namespace edu {
         }
 
         cudaError_t cudaFree(void *ptr) {
-            free(ptr);
+            mem::dealloc(ptr);
             ret_err(cudaSuccess);
         }
 
@@ -291,17 +298,28 @@ namespace edu {
         }
 
         enum cudaMemcpyKind {
-            cudaMemcpyHostToHost,
-            cudaMemcpyHostToDevice,
-            cudaMemcpyDeviceToHost,
-            cudaMemcpyDeviceToDevice
+            cudaMemcpyHostToHost = 0,
+            cudaMemcpyHostToDevice = 1,
+            cudaMemcpyDeviceToHost = 2,
+            cudaMemcpyDeviceToDevice = 3
+        };
+        struct MemcpyKindSpace {
+            mem::MemorySpace src;
+            mem::MemorySpace dst;
+        } memcpy_space[] = {
+            {mem::MemorySpace_Host, mem::MemorySpace_Host},
+            {mem::MemorySpace_Host, mem::MemorySpace_Device},
+            {mem::MemorySpace_Device, mem::MemorySpace_Host},
+            {mem::MemorySpace_Device, mem::MemorySpace_Device}
         };
 
         cudaError_t cudaMemcpy(void *dst,
                                const void *src,
                                size_t count,
                                cudaMemcpyKind kind) {
-            memcpy(dst, src, count);
+            mem::copy(memcpy_space[kind].dst, dst,
+                      memcpy_space[kind].src, src,
+                      count);
             ret_err(cudaSuccess);
         }
 
@@ -339,6 +357,8 @@ namespace edu {
                     return;
                 }
                 
+                mem::set_space(mem::MemorySpace_Device);
+
                 cuda::gridDim = gridDim;
                 cuda::blockDim = blockDim;
                 
@@ -357,7 +377,8 @@ namespace edu {
                         }
                     }
                 }
-                
+
+                mem::set_space(mem::MemorySpace_Host);
             }
         };
 
@@ -435,6 +456,8 @@ namespace edu {
                 if(cudaSuccess != check_kernel_config(gridDim, blockDim)) {
                     return;
                 }
+
+                mem::set_space(mem::MemorySpace_Device);
                 
                 cuda::gridDim = gridDim;
                 cuda::blockDim = blockDim;
@@ -468,7 +491,8 @@ namespace edu {
                         }
                     }
                 }
-                
+
+                mem::set_space(mem::MemorySpace_Host);
             }
         };
 
@@ -489,3 +513,6 @@ namespace edu {
 
 using namespace edu::wb;
 using namespace edu::cuda;
+
+#define malloc(len) edu::mem::alloc(edu::mem::MemorySpace_Host, len)
+#define free(ptr) edu::mem::dealloc(ptr)
