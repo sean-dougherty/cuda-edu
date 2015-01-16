@@ -180,6 +180,5 @@ namespace edu {
 
         dim3 gridDim;
         dim3 blockDim;
-        uint3 blockIdx;
     }
 }

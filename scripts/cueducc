@@ -22,6 +22,6 @@ f.write('#line 1 "%s"\n' % path_in)
 f.write(src_out)
 f.close()
 
-cmd = 'g++ -I%s -std=c++11 -g -o %s %s -lpthread' % (include, path_bin, path_out)
+cmd = 'g++ -I%s -std=c++11 -fopenmp -g -o %s %s -lpthread' % (include, path_bin, path_out)
 rc = os.system(cmd)
 sys.exit(0 if rc == 0 else 1)

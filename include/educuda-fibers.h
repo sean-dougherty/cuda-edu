@@ -7,12 +7,29 @@
 #include <functional>
 #include <vector>
 
-#define __shared__ static
+#define __shared__ static thread_local
+
+#if !defined(EDU_CUDA_FIBERS_OS_THREADS_COUNT)
+    #define EDU_CUDA_FIBERS_OS_THREADS_COUNT 4
+#endif
 
 namespace edu {
     namespace cuda {
 
-        uint3 threadIdx;
+        thread_local uint3 blockIdx;
+        thread_local uint3 threadIdx;
+
+        uint linearize(const dim3 &dim, uint3 idx) {
+            return (dim.x*dim.y)*idx.z + idx.y*dim.x + idx.x;
+        }
+
+        uint3 delinearize(const dim3 &dim, uint idx) {
+            uint z = idx / (dim.x*dim.y);
+            uint remain = idx % (dim.x*dim.y);
+            uint y = remain / dim.x;
+            uint x = remain % dim.x;
+            return {x, y, z};
+        }
 
         struct fiber_t {
             uint3 idx;
@@ -28,7 +45,7 @@ namespace edu {
                 Exit
             } status = Birth;
 
-            static fiber_t *current;
+            static thread_local fiber_t *current;
 
 #define __syncthreads() edu::cuda::fiber_t::current->sync()
 
@@ -87,7 +104,7 @@ namespace edu {
             }
         };        
 
-        fiber_t *fiber_t::current = nullptr;
+        thread_local fiber_t *fiber_t::current = nullptr;
 
         struct fibers_block_t {
             unsigned n;
@@ -152,37 +169,34 @@ namespace edu {
                 cuda::gridDim = gridDim;
                 cuda::blockDim = blockDim;
                 
-                size_t nthreads = blockDim.x * blockDim.y * blockDim.z;
+                const size_t nblocks = gridDim.x * gridDim.y * gridDim.z;
+                const size_t ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
 
-                for(blockIdx.x = 0; blockIdx.x < gridDim.x; blockIdx.x++) {
-                    for(blockIdx.y = 0; blockIdx.y < gridDim.y; blockIdx.y++) {
-                        for(blockIdx.z = 0; blockIdx.z < gridDim.z; blockIdx.z++) {
+#pragma omp parallel for num_threads(EDU_CUDA_FIBERS_OS_THREADS_COUNT)
+                for(size_t iblock = 0; iblock < nblocks; iblock++) {
+                    blockIdx = delinearize(gridDim, iblock);
+                    vector<fiber_t> fibers;
+                    fibers.reserve(ncuda_threads);
                             
-                            vector<fiber_t> fibers;
-                            fibers.reserve(nthreads);
-                            
-                            fibers_block_t fblock{nthreads};
+                    fibers_block_t fblock{ncuda_threads};
 
-                            for(uint3 tIdx = {0,0,0}; tIdx.x < blockDim.x; tIdx.x++) {
-                                for(tIdx.y = 0; tIdx.y < blockDim.y; tIdx.y++) {
-                                    for(tIdx.z = 0; tIdx.z < blockDim.z; tIdx.z++) {
+                    for(uint3 tIdx = {0,0,0}; tIdx.x < blockDim.x; tIdx.x++) {
+                        for(tIdx.y = 0; tIdx.y < blockDim.y; tIdx.y++) {
+                            for(tIdx.z = 0; tIdx.z < blockDim.z; tIdx.z++) {
 
-                                        fibers.emplace_back(tIdx, enter_kernel);
-                                        fiber_t &f = fibers.back();
-                                        f.spawn();
-                                        fblock.update(f);
-                                    }
-                                }
+                                fibers.emplace_back(tIdx, enter_kernel);
+                                fiber_t &f = fibers.back();
+                                f.spawn();
+                                fblock.update(f);
                             }
+                        }
+                    }
 
-                            while(!fblock.is_done()) {
-                                fblock.reset();
-                                for(fiber_t &f: fibers) {
-                                    f.resume();
-                                    fblock.update(f);
-                                }
-                            }
-
+                    while(!fblock.is_done()) {
+                        fblock.reset();
+                        for(fiber_t &f: fibers) {
+                            f.resume();
+                            fblock.update(f);
                         }
                     }
                 }

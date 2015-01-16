@@ -12,6 +12,7 @@
 namespace edu {
     namespace cuda {
 
+        uint3 blockIdx;
         thread_local uint3 threadIdx;
 
         class Barrier {

@@ -10,6 +10,7 @@
 namespace edu {
     namespace cuda {
 
+        uint3 blockIdx;
         uint3 threadIdx;
 
         struct driver_t {
