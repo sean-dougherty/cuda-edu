@@ -1,7 +1,7 @@
 #pragma once
 
 #include <educuda-api.h>
-#include <ucontext.h>
+#include <edupfm.h>
 
 #include <assert.h>
 #include <functional>
@@ -13,19 +13,12 @@ namespace edu {
     namespace cuda {
 
         uint3 threadIdx;
-#define handle_error(msg)                               \
-        do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
-        typedef void (*ucontext_func_t)();
-
-        const size_t SIGNATURE_PREFIX = 0xdeadbeef;
-        const size_t SIGNATURE_SUFFIX = 0xabcd1234;
 
         struct fiber_t {
             uint3 idx;
             function<void()> enter_kernel;
-            ucontext_t uctx;
-            ucontext_t uctx_main;
+            pfm::fiber_context_t ctx;
+            pfm::fiber_context_t ctx_main;
             char stack[4096];
             enum status_t {
                 Birth,
@@ -47,14 +40,14 @@ namespace edu {
             void sync() {
                 assert(status == Run);
                 status = Sync;
-                swapcontext(&uctx, &uctx_main);
+                edu_errif(!pfm::switch_fiber_context(&ctx, &ctx_main));
             }
 
             void resume() {
                 assert(status == Sync);
                 status = Run;
                 set_current();
-                swapcontext(&uctx_main, &uctx);
+                edu_errif(!pfm::switch_fiber_context(&ctx_main, &ctx));
             }
 
             void run() {
@@ -62,12 +55,7 @@ namespace edu {
                 enter_kernel();
             }
 
-            static void __run(size_t signature_prefix,
-                              fiber_t *thiz,
-                              size_t signature_suffix) {
-                assert(signature_prefix == SIGNATURE_PREFIX);
-                assert(signature_suffix == SIGNATURE_SUFFIX);
-
+            static void __run(fiber_t *thiz) {
                 thiz->status = Run;
                 thiz->run();
                 thiz->status = Exit;
@@ -76,13 +64,14 @@ namespace edu {
             void spawn() {
                 status = Spawn;
 
-                uctx.uc_stack.ss_sp = stack;
-                uctx.uc_stack.ss_size = sizeof(stack);
-                uctx.uc_link = &uctx_main;
-                makecontext(&uctx, (ucontext_func_t)__run,
-                            3, SIGNATURE_PREFIX, this, SIGNATURE_SUFFIX);
-                if(swapcontext(&uctx_main, &uctx) == -1)
-                    handle_error("swapcontext");
+                pfm::init_fiber_context(&ctx,
+                                        &ctx_main,
+                                        stack,
+                                        sizeof(stack),
+                                        (pfm::fiber_context_entry_func_t)__run,
+                                        this);
+
+                edu_errif(!pfm::switch_fiber_context(&ctx_main, &ctx));
             }
 
             fiber_t(uint3 idx_,
@@ -90,9 +79,11 @@ namespace edu {
             : idx(idx_)
             , enter_kernel(enter_kernel_)
                 , status(Birth) {
+            }
 
-                if(getcontext(&uctx) == -1)
-                    handle_error("getcontext");
+            ~fiber_t() {
+                pfm::dispose_fiber_context(ctx);
+                pfm::dispose_fiber_context(ctx_main);
             }
         };        
 
