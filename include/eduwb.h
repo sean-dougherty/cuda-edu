@@ -2,6 +2,7 @@
 
 #include <edumem.h>
 
+#include <assert.h>
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -28,14 +29,31 @@ namespace edu {
                 }
                 return argv[1];
             }
+
+            unique_ptr<char> find_path(const string &base) {
+                const static vector<string> Extensions = {".raw", ".csv", ".ppm"};
+                for(const string &ext: Extensions) {
+                    string candidate = base+ext;
+                    if(util::file_exists(candidate)) {
+                        return unique_ptr<char>(strdup(candidate.c_str()));
+                    }
+                }
+                edu_err("Cannot locate valid file at " << base << ".*");
+            }
+
             char *get_input_path(int index) {
                 if( (index >= input_paths.size()) || !input_paths[index] ) {
-                    stringstream ss;
-                    ss << data_dir() << "/input" << index << ".raw";
+                    string base;
+                    {
+                        stringstream ss;
+                        ss << data_dir() << "/input" << index;
+                        base = ss.str();
+                    }
+                    unique_ptr<char> path = find_path(base);
                     if(input_paths.size() <= index) {
                         input_paths.resize(index+1);
                     }
-                    input_paths[index] = unique_ptr<char>(strdup(ss.str().c_str()));
+                    input_paths[index] = std::move(path);
                 }
 
                 return input_paths[index].get();
@@ -44,15 +62,60 @@ namespace edu {
                 if(!output_path) {
                     stringstream ss;
                     ss << data_dir() << "/output.raw";
-                    output_path = unique_ptr<char>(strdup(ss.str().c_str()));
+                    output_path = find_path(data_dir()+"/output");
                 }
                 return output_path.get();
             }
         };
 
-        typedef char *wbFile_t;
+        typedef void *wbFile_t;
 
-        float *read_data(string path, int *length) {
+        float *read_csv(const string &path, int *rows, int *cols) {
+#define __checkio() if(in.fail()) {edu_err("Failed reading from " << path);}
+
+            ifstream in(path);
+            __checkio();
+
+            *rows = 0;
+
+            vector<float> data;
+            while(true) {
+                if(in.eof()) {
+                    break;
+                }
+                char buf[1024];
+                in.getline(buf, sizeof(buf));
+                __checkio();
+
+                const char *Delims = " ,\t";
+                int ntoks = 0;
+                char *save;
+                char *tok = strtok_r(buf, Delims, &save);
+                while(tok) {
+                    ntoks++;
+                    // assume well-formed...
+                    data.push_back( atof(tok) );
+                    tok = strtok_r(nullptr, Delims, &save);
+                }
+
+                if(*rows == 0) {
+                    *cols = ntoks;
+                } else {
+                    if(ntoks != *cols) {
+                        edu_err("Not rectangular data: " << path);
+                    }
+                }
+                (*rows)++;
+#undef __checkio
+            }
+             
+            size_t nbytes = data.size() * sizeof(float);
+            float *result = (float *)mem::alloc(mem::MemorySpace_Host, nbytes);
+            memcpy(result, data.data(), nbytes);
+            return result;
+        }
+
+        float *read_raw_vector(const string &path, int *length) {
             ifstream in(path.c_str());
             if(!in) {
                 edu_err("Failed opening input: " << path);
@@ -69,7 +132,7 @@ namespace edu {
             return buf;
         }
 
-        float *read_data(string path, int *rows, int *cols) {
+        float *read_raw_matrix(const string &path, int *rows, int *cols) {
             ifstream in(path.c_str());
             if(!in) {
                 edu_err("Failed opening input: " << path);
@@ -87,6 +150,24 @@ namespace edu {
             return buf;
         }
 
+        float *read_data(const string &path, int *rows, int *cols) {
+            if(util::ends_with(path, ".raw")) {
+                return read_raw_matrix(path, rows, cols);
+            } else if(util::ends_with(path, ".csv")) {
+                read_csv(path, rows, cols);
+            } else {
+                edu_err("Unknown matrix file format: " << path);
+            }
+        }
+
+        float *read_data(const string &path, int *rows) {
+            if(util::ends_with(path, ".raw")) {
+                return read_raw_vector(path, rows);
+            } else {
+                edu_err("Unknown vector file format: " << path);
+            }
+        }
+
         wbArg_t wbArg_read(int argc, char **argv) {
             return {argc, argv};
         }
@@ -94,8 +175,93 @@ namespace edu {
         struct wbImage_t {
             int width;
             int height;
-            int channels; 
+            int channels;
+            float *pixels;
+
+            string dims_str() const {
+                stringstream ss;
+                ss << "(" << width << "," << height << "," << channels << ")";
+                return ss.str();
+            }
         };
+
+        wbImage_t wbImage_new(int width, int height, int channels) {
+            return {width,
+                    height,
+                    channels,
+                    (float *)mem::alloc(mem::MemorySpace_Host, width*height*channels*sizeof(float))};
+        }
+        void wbImage_delete(wbImage_t &image) {
+            mem::dealloc(mem::MemorySpace_Host, image.pixels);
+            image.pixels = nullptr;
+        }
+
+        namespace ppm {
+            const int Channels = 3;
+
+#define __checkio() if(in.fail()) {edu_err("Failed reading from " << path);}
+            int next_int(const string &path, istream &in) {
+                while(true) {
+                    int c = in.peek();
+                    __checkio();
+                    if(c == '#') {
+                        char buf[1024];
+                        in.getline(buf, sizeof(buf));
+                        __checkio();
+                    } else if(!isspace(c)) {
+                        int result;
+                        in >> result;
+                        __checkio();
+                        return result;
+                    } else {
+                        in.ignore(1);
+                    }
+                }
+                edu_err("Unexpected EOF in " << path);
+            }
+
+            wbImage_t parse(const string &path) {
+                ifstream in(path);
+                __checkio();
+                
+                // See http://netpbm.sourceforge.net/doc/ppm.html for specification.
+                {
+                    char magic[2] = {0, 0};
+                    in.read(magic, 2);
+                    __checkio();
+                    if( magic[0] != 'P' || magic[1] != '6' ) {
+                        edu_err("Invalid PPM file. Missing signature: " << path);
+                    }
+                }
+
+                int width = next_int(path, in);
+                int height = next_int(path, in);
+                int maxval = next_int(path, in);
+                if(maxval >= 256) {
+                    edu_err("16-bit pixel data not currently supported: " << path);
+                }
+                // skip 1 whitespace char after maxval
+                in.ignore(1);
+                __checkio();
+
+                wbImage_t image = wbImage_new(width, height, Channels);
+
+                int npixels = image.width * image.height;
+                int raw_pixelbuf_size = npixels * Channels;
+                unique_ptr<unsigned char> raw_pixels(new unsigned char[raw_pixelbuf_size]);
+                
+                in.read((char *)raw_pixels.get(), raw_pixelbuf_size);
+                __checkio();
+
+                float scale = 1.0 / maxval;
+                for(int i = 0; i < (npixels * Channels); i++) {
+                    image.pixels[i] = float(raw_pixels.get()[i]) * scale;
+                }
+
+                return image;
+            }
+#undef __checkio
+        }
 
         int wbImage_getWidth(wbImage_t &image) {
             return image.width;
@@ -107,16 +273,10 @@ namespace edu {
             return image.channels;
         }
         float *wbImage_getData(wbImage_t &image) {
-            abort();
-        }
-        wbImage_t wbImage_new(int width, int height, int channels) {
-            abort();
-        }
-        wbImage_t wbImage_delete(wbImage_t &image) {
-            abort();
+            return image.pixels;
         }
         wbImage_t wbImport(char *f) {
-            abort();
+            return ppm::parse(f);
         }
 
         char *wbArg_getInputFile(wbArg_t &args, int index) {
@@ -131,19 +291,29 @@ namespace edu {
             return read_data(f, rows, cols);
         }
 
-        void wbSolution(wbArg_t &args, void *output, int length) {
+        namespace solution {
+            void check(float *expected, float *actual, int length) {
+                for(int i = 0; i < length; i++) {
+                    float e = expected[i];
+                    float a = actual[i];
+                    if(!util::equals(e, a)) {
+                        edu_err("Results mismatch at index " << i << ". Expected " << e << ", found " << a << ".");
+                    }
+                }
+
+                cout << "Solution correct." << endl;
+            }
+        }
+
+        void wbSolution(wbArg_t &args, void *output, int length_) {
+            int length;
             float *expected = read_data(args.get_output_path(), &length);
             float *actual = (float *)output;
-
-            for(int i = 0; i < length; i++) {
-                float e = expected[i];
-                float a = actual[i];
-                if( fabs(a - e) > (1e-3 * e) ) {
-                    edu_err("Results mismatch at index " << i << ". Expected " << e << ", found " << a << ".");
-                }
+            if(length != length_) {
+                edu_err("Incorrect vector length. Expected " << length << ", found " << length_);
             }
 
-            cout << "Solution correct." << endl;
+            solution::check(expected, actual, length);
 
             mem::dealloc(mem::MemorySpace_Host, expected);
         }
@@ -151,6 +321,7 @@ namespace edu {
         void wbSolution(wbArg_t &args, void *output, int rows_, int cols_) {
             int rows, cols;
             float *expected = read_data(args.get_output_path(), &rows, &cols);
+            float *actual = (float *)output;
             if(rows != rows_) {
                 edu_err("Incorrect number of rows. Expected " << rows << ", found " << rows_);
             }
@@ -158,23 +329,25 @@ namespace edu {
                 edu_err("Incorrect number of cols. Expected " << cols << ", found " << cols_);
             }
 
-            float *actual = (float *)output;
-
-            for(int i = 0; i < (rows * cols); i++) {
-                float e = expected[i];
-                float a = actual[i];
-                if( fabs(a - e) > (1e-3 * e) ) {
-                    edu_err("Results mismatch at index " << i << ". Expected " << e << ", found " << a << ".");
-                }
-            }
-
-            cout << "Solution correct." << endl;
+            solution::check(expected, actual, rows * cols);
 
             mem::dealloc(mem::MemorySpace_Host, expected);
         }
 
         void wbSolution(wbArg_t &args, wbImage_t &image) {
-            abort();
+            wbImage_t output = wbImport(args.get_output_path());
+
+            if( (image.width != output.width)
+                || (image.height != output.height)
+                || (image.channels != output.channels) ) {
+                edu_err("Solution dimensions mismatch. Expected " << output.dims_str() << ", found " << image.dims_str());
+            }
+
+            solution::check(output.pixels,
+                            image.pixels,
+                            output.width * output.height * output.channels);
+
+            wbImage_delete(output);
         }
 
         enum wbLog_level_t {

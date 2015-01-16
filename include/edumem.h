@@ -59,6 +59,10 @@ namespace edu {
         typedef map<const void *, Buffer> BufferMap;
         BufferMap spaces[__MemorySpace_N];
 
+        void warn_new() {
+            edu_warn("Unknown memory location, did you use new or shared_ptr/unique_ptr? Please use malloc() or cudaMallocHost() so that errors can be more easily detected by cuda-edu.");
+        }
+
         bool find_buf(const void *addr, Buffer *buf, BufferMap **bufmap = nullptr) {
 #define __tryget(space) {                                               \
                 auto it = spaces[space].find(addr);                     \
@@ -108,7 +112,6 @@ namespace edu {
             return buf.addr;
         }
 
-#define warn_new() edu_warn("Unknown memory location, did you use new or shared_ptr/unique_ptr? Please use malloc() or cudaMallocHost() so that errors can be more easily detected by cuda-edu.");
         void dealloc(MemorySpace space, void *addr) {
             Buffer buf;
             BufferMap *bufmap;
@@ -134,7 +137,7 @@ namespace edu {
 #define __acquire(BUF, SPACE, PTR, DIR) {                               \
                 if(!find_buf(PTR, &BUF)) {                              \
                     if(SPACE == MemorySpace_Host) {                     \
-                        warn_new()                                      \
+                        warn_new();                                     \
                         BUF.addr = nullptr;                             \
                     } else {                                            \
                         edu_err("Invalid Device buffer specified.");    \
