@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <cmath>
 #include <fstream>
+#include <memory>
 #include <sstream>
 
 namespace edu {
