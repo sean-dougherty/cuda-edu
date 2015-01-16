@@ -122,7 +122,7 @@ Although it runs slowly and can overload your debugger's list of threads, if you
 the number of threads in a block down to a small number, it can make debugging more simple
 than the Fibers Dispatcher.
 You'll be able to see all of the threads from your block and inspect each of their state
-while your program is in at a breakpoint.
+while your program is paused by the debugger.
 
 ## Fibers Dispatcher ##
 
