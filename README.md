@@ -78,10 +78,80 @@ Results mismatch at index 0. Expected 103.558, found -1.39195e-05.
 
 Coming soon.
 
-# Tips #
+# Dispatchers #
 
-cuda-edu creates an OS thread for every CUDA thread, which can be problematic if you have
-a large number of threads per block. When you're developing code, you should consider using
-a small number of threads per block, like 4 or 8. Note that only one block has active
-threads at a given moment. So, if you have a 32x32 grid with 4 threads per block, you'll
-have a max of 4 kernel threads at any moment.
+cuda-edu has three different thread dispatchers, each with its own strengths. You may find
+it beneficial to change dispatchers when trying to debug your code. An overview of how
+they work and how to select them follows.
+
+## Sequential Dispatcher ##
+
+This is the simplest dispatcher, which uses a single OS thread to execute all of your Cuda
+threads in sequence. Its main advantage is that it can make debugging really simple. For
+example, you can put *printf()* calls in your kernel and not worry about your output getting
+garbled. Also, it makes stepping through your code with a debugger really simple. The main
+disadvantage is that it cannot support the Cuda *__syncthreads()* call, which means this
+dispatcher can only be used with the first couple homework assignments. To activate
+the Sequential Dispatcher, you must place a *#define* directive before you include *wb.h*:
+
+```
+#define EDU_CUDA_SEQUENTIAL
+#include <wb.h>
+```
+
+## Threads Dispatcher ##
+
+This dispatcher provides proper parallelism, using an OS thread for each Cuda thread. This
+means *__syncthreads()* will work. Unfortunately, this can result in *a lot* of OS threads
+being created, which will potentially make your program run very slowly and also can make
+debugging difficult, since you might see up to 1024 threads listed in your debugger! The
+good news is that only a single block is executed at a time, so if you use a small number
+of threads per block, then you can keep things manageable. When you're using a proper GPU
+you'll typically want to use 512 or more threads per block, but when you're using cuda-edu
+with the Threads Dispatcher, you'll probably want to keep your threads per block down around
+2 - 16. To activate the Threads Dispatcher, you must place a *#define* directive before you
+include *wb.h*:
+
+```
+#define EDU_CUDA_THREADS
+#include <wb.h>
+```
+
+This is the default dispatcher for platforms that don't support the Fibers Dispatcher.
+Although it runs slowly and can overload your debugger's list of threads, if you keep
+the number of threads in a block down to a small number, it can make debugging more simple
+than the Fibers Dispatcher.
+You'll be able to see all of the threads from your block and inspect each of their state
+while your program is in at a breakpoint.
+
+## Fibers Dispatcher ##
+
+This dispatcher, like the Threads Dispatcher, provides real parallelism, allowing
+*__synchthreads()* to work. Its main advantages are that it is highly efficient and that
+it can handle a large number of threads per block, which means that you can run with the
+same number of threads per block as you would with a GPU. The disadvantage is that it
+uses wizardry (fibers) to execute multiple Cuda threads on a single OS thread. This means
+that debugging can be challenging because you won't be able to see the stack for all the
+Cuda threads that are currently active. On the plus side, the Cuda threads in a given
+block aren't executed in parallel, so you can step through their execution in your debugger
+pretty easily. Just understand that any time *__syncthreads()* is called, there is going
+to be a switch to another fiber. To activate the Fibers Dispatcher (if it's available for
+your platform), you must place a *#define* directive before you include *wb.h*:
+
+```
+#define EDU_CUDA_FIBERS
+#include <wb.h>
+```
+
+In addition, you may configure the *maximum* number of OS threads used. The actual number
+of OS threads may be smaller than what you request. How the actual number is chosen is
+decided by your implementation of *OpenMP*. Likely, the number will be limited to the
+number of CPU cores. You can use any number greater than 0. Reasonable values would be
+in [1,16]. To configure the maximum number of threads, use a *#define* before
+you include *wb.h*:
+
+```
+#define EDU_CUDA_FIBERS
+#define EDU_CUDA_FIBERS_OS_THREADS_COUNT 2
+#include <wb.h>
+```
