@@ -28,12 +28,16 @@ namespace edu {
             }
         }
 
-        bool equals(float expected, float actual) {
+        bool equals(float expected, float actual, float tolerance = 1e-3) {
             if(expected == 0.0) {
-                return fabs(expected - actual) < (1e-3);
+                return fabs(expected - actual) < (tolerance);
             } else {
-                return fabs(expected - actual) < (1e-3 * expected);
+                return fabs(expected - actual) < fabs(tolerance * expected);
             }
+        }
+
+        bool equals_abs(float expected, float actual, float tolerance) {
+                return fabs(expected - actual) < (tolerance);
         }
     }
 }

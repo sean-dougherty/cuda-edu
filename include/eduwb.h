@@ -292,11 +292,14 @@ namespace edu {
         }
 
         namespace solution {
-            void check(float *expected, float *actual, int length) {
+            void check(float *expected,
+                       float *actual,
+                       int length,
+                       function<bool(float,float)> equals = [](float e, float a) {return util::equals(e, a);}) {
                 for(int i = 0; i < length; i++) {
                     float e = expected[i];
                     float a = actual[i];
-                    if(!util::equals(e, a)) {
+                    if(!equals(e, a)) {
                         edu_err("Results mismatch at index " << i << ". Expected " << e << ", found " << a << ".");
                     }
                 }
@@ -345,7 +348,8 @@ namespace edu {
 
             solution::check(output.pixels,
                             image.pixels,
-                            output.width * output.height * output.channels);
+                            output.width * output.height * output.channels,
+                            [](float e, float a){return util::equals_abs(e, a, 0.01f);});
 
             wbImage_delete(output);
         }
