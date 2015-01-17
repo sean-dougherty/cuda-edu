@@ -155,7 +155,7 @@ namespace edu {
             if(util::ends_with(path, ".raw")) {
                 return read_raw_matrix(path, rows, cols);
             } else if(util::ends_with(path, ".csv")) {
-                read_csv(path, rows, cols);
+                return read_csv(path, rows, cols);
             } else {
                 edu_err("Unknown matrix file format: " << path);
             }
