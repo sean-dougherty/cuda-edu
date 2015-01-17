@@ -1,3 +1,4 @@
 mymp/
 mp/**/mp
 mp/**/.mp*
+tests/**/main

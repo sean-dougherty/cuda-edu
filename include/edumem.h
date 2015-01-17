@@ -12,21 +12,36 @@ namespace edu {
         using namespace std;
 
         enum MemorySpace {
-            MemorySpace_Host = 0, MemorySpace_Device = 1, __MemorySpace_N = 2
+            MemorySpace_Host = 0, MemorySpace_Device = 1, MemorySpace_Unknown = 2, __MemorySpace_N = 3
         };
         ostream &operator<<(ostream &out, MemorySpace space) {
             switch(space) {
             case MemorySpace_Host: return out << "Host";
             case MemorySpace_Device: return out << "Device";
+            case MemorySpace_Unknown: return out << "Unknown";
             default: return out << "INVALID";
             }
         }
 
         MemorySpace curr_space = MemorySpace_Host;
 
+        struct AddressRange {
+            size_t start;
+            size_t end; //exclusive
+
+            AddressRange(const void *ptr, size_t len) {
+                start = size_t(ptr);
+                end = start + len;
+            }
+
+            friend bool operator<(const AddressRange &a, const AddressRange &b) {
+                return a.end <= b.start;
+            }
+        };
+
         struct Buffer {
             void *addr;
-            unsigned len;
+            size_t len;
             MemorySpace space;
 
             static Buffer alloc(MemorySpace space, unsigned len) {
@@ -36,6 +51,14 @@ namespace edu {
                 buf.len = len;
                 buf.space = space;
                 return buf;
+            }
+
+            static Buffer get_universe() {
+                return {nullptr, ~size_t(0), MemorySpace_Unknown};
+            }
+
+            static Buffer get_uninitialized() {
+                return {nullptr, 0, MemorySpace_Unknown};
             }
 
             void dealloc() {
@@ -50,13 +73,18 @@ namespace edu {
                 edu_errif(!pfm::set_mem_access(addr, len, pfm::MemAccess_None));
             }
 
-            bool valid(const void *addr, unsigned len) {
+            bool is_valid(const void *addr, unsigned len) {
                 return (addr >= this->addr)
                     && ((const char*)addr + len) <= ((const char*)this->addr + this->len);
             }
+
+            bool is_valid_offset(void *ptr, signed offset) {
+                return ((char*)ptr + offset >= (char*)addr)
+                    && ((char*)ptr + offset < (char*)addr + len);
+            }
         };
 
-        typedef map<const void *, Buffer> BufferMap;
+        typedef map<AddressRange, Buffer> BufferMap;
         BufferMap spaces[__MemorySpace_N];
 
         void warn_new() {
@@ -65,7 +93,7 @@ namespace edu {
 
         bool find_buf(const void *addr, Buffer *buf, BufferMap **bufmap = nullptr) {
 #define __tryget(space) {                                               \
-                auto it = spaces[space].find(addr);                     \
+                auto it = spaces[space].find({addr,1});                 \
                 if(it != spaces[space].end()) {                         \
                     if(bufmap) *bufmap = &spaces[space];                \
                     *buf = it->second;                                  \
@@ -108,7 +136,7 @@ namespace edu {
             } else {
                 buf.deactivate();
             }
-            spaces[space][buf.addr] = buf;
+            spaces[space][{buf.addr,buf.len}] = buf;
             return buf.addr;
         }
 
@@ -123,7 +151,7 @@ namespace edu {
                 edu_err("Requested to free memory in " << space << ", but provided address in " << buf.space);
             }
 
-            bufmap->erase(buf.addr);
+            bufmap->erase({buf.addr, buf.len});
             buf.dealloc();
         }
 
@@ -150,7 +178,7 @@ namespace edu {
                     if(BUF.space != curr_space) {                       \
                         BUF.activate();                                 \
                     }                                                   \
-                    edu_errif(!BUF.valid(PTR, len));                    \
+                    edu_errif(!BUF.is_valid(PTR, len));                    \
                 }                                                       \
             }
 
