@@ -192,6 +192,23 @@ void test_ptr() {
 #undef __cmp
 }
 
+void __malloc(void ** p, unsigned len) {
+    *p = mem::alloc(mem::MemorySpace_Host, len);
+}
+
+void test_cudaMalloc() {
+    const unsigned N = 10;
+
+    ptr_guard_t<float> p;
+    __malloc((void**)&p, sizeof(float)*N);
+
+    for(int i = 0; i < N; i++)
+        p[i] = i;
+
+    expect_fail(p[-1]);
+    expect_fail(p[N]);
+}
+
 
 int main(int argc, const char **argv) {
     test_array();
@@ -199,6 +216,7 @@ int main(int argc, const char **argv) {
     test_array3();
 
     test_ptr();
+    test_cudaMalloc();
 
     cout << "--- Passed guard tests ---" << endl;
 

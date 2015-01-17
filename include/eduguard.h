@@ -11,26 +11,37 @@ namespace edu {
             struct ptr_guard_t {
                 T *ptr;
                 Buffer buf;
+                void *buf_ptr; // detect when changed via cudaMalloc(void **);
 
                 ptr_guard_t() {
                     ptr = nullptr;
                     buf = Buffer::get_uninitialized();
+                    buf_ptr = nullptr;
                 }
 
-            ptr_guard_t(T *ptr_) : ptr(ptr_) {
-                if(!mem::find_buf(ptr, &buf)) {
-                    buf = Buffer::get_universe();
+                ptr_guard_t(T *ptr_) : ptr(ptr_) {
+                    if(!mem::find_buf(ptr, &buf)) {
+                        buf = Buffer::get_universe();
+                    }
+                    buf_ptr = ptr;
                 }
-            }
-            ptr_guard_t(T *ptr_, Buffer buf_) : ptr(ptr_), buf(buf_) {
-            }
+                ptr_guard_t(T *ptr_, Buffer buf_) : ptr(ptr_), buf(buf_), buf_ptr(ptr_) {
+                }
 
-                bool is_valid(int i) {
-                    return buf.is_valid_offset(ptr, i * sizeof(T));
+                void check_offset(int i) {
+                    if(ptr != buf_ptr) { // must have been changed by cudaMalloc()
+                        if(!mem::find_buf(ptr, &buf)) {
+                            buf = Buffer::get_universe();
+                            buf_ptr = ptr;
+                        }
+                    }
+                    if(!buf.is_valid_offset(ptr, i * sizeof(T))) {
+                        edu_err("Buffer bounds violated.");
+                    }
                 }
 
                 T &operator[](int i) {
-                    edu_assert(is_valid(i));
+                    check_offset(i);
                     return ptr[i];
                 }
 
@@ -43,7 +54,7 @@ namespace edu {
                 }
 
                 ptr_guard_t operator+(int i) {
-                    edu_assert(is_valid(i));
+                    check_offset(i);
                     return ptr_guard_t(ptr + i, buf);
                 }
 
@@ -52,7 +63,7 @@ namespace edu {
                 }
 
                 ptr_guard_t &operator+=(int i) {
-                    edu_assert(is_valid(i));
+                    check_offset(i);
                     ptr += i;
                     return *this;
                 }

@@ -4,13 +4,14 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <sstream>
 
 namespace edu {
 
 #ifdef EDU_CUDA_ERR_THROW
-    #define edu_err(x...) {std::stringstream ss; ss << x << endl; throw ss.str();}
+    #define edu_err(x...) {std::stringstream ss; ss << __FILE__ << ":" << __LINE__ << ": " << x << endl; throw runtime_error(ss.str());}
 #else
 
     #define edu_err(x...) {                                                 \

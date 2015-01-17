@@ -178,7 +178,9 @@ namespace edu {
                     if(BUF.space != curr_space) {                       \
                         BUF.activate();                                 \
                     }                                                   \
-                    edu_errif(!BUF.is_valid(PTR, len));                    \
+                    if(!BUF.is_valid(PTR, len)) {                       \
+                        edu_err("Invalid '" << DIR << "' address or bounds."); \
+                    }                                                   \
                 }                                                       \
             }
 
@@ -188,7 +190,7 @@ namespace edu {
                 }                               \
             }
 
-            __acquire(dst_buf, dst_space, dst, "to");                      
+            __acquire(dst_buf, dst_space, dst, "to");
             __acquire(src_buf, src_space, src, "from");
 
             memcpy(dst, src, len);
