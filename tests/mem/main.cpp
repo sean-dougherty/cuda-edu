@@ -44,8 +44,22 @@ void test_find() {
     assert(!find_buf(p2+N, &buf));
 }
 
+void test_free() {
+    char *p = (char *)mem::alloc(MemorySpace_Host, 4);
+
+    expect_fail( mem::dealloc(MemorySpace_Device, p) );
+    expect_fail( mem::dealloc(MemorySpace_Host, nullptr) );
+    expect_fail( mem::dealloc(MemorySpace_Host, p + 1) );
+    expect_fail( mem::dealloc(MemorySpace_Host, p - 1) );
+
+    mem::dealloc(MemorySpace_Host, p);
+
+    expect_fail( mem::dealloc(MemorySpace_Host, p) );
+}
+
 int main(int argc, const char **argv) {
     test_find();
+    test_free();
 
     cout << "--- Passed mem tests ---" << endl;
 

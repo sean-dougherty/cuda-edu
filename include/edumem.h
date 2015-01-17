@@ -146,6 +146,9 @@ namespace edu {
             if(!find_buf(addr, &buf, &bufmap)) {
                 edu_err("Invalid buffer.");
             }
+            if(buf.addr != addr) {
+                edu_err("Attempting to free memory in middle of allocated buffer.");
+            }
 
             if(space != buf.space) {
                 edu_err("Requested to free memory in " << space << ", but provided address in " << buf.space);
