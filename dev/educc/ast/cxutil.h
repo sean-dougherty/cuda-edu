@@ -48,6 +48,7 @@ string str(const CXLinkageKind &kind) {
     case CXLinkage_Internal: return "internal";
     case CXLinkage_UniqueExternal: return "unique_external";
     case CXLinkage_External: return "external";
+    default: abort();
     }
 }
 
@@ -267,7 +268,7 @@ struct SourceExtractor {
         
         char *buf = (char *)malloc(flen + 1);
         if( (0 != fseek(f, 0, SEEK_SET))
-            || (flen != fread(buf, 1, flen, f)) ) {
+            || (size_t(flen) != fread(buf, 1, flen, f)) ) {
             err("Failed reading from " << path);
         }
         fclose(f);
@@ -406,6 +407,7 @@ bool has_errors(CXTranslationUnit tu) {
         switch(severity) {
         case CXDiagnostic_Ignored:
         case CXDiagnostic_Note:
+        case CXDiagnostic_Warning:
             // no-op
             break;
         default:

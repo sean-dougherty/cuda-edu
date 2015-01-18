@@ -1,4 +1,4 @@
 mymp/
 mp/**/mp
 mp/**/.mp*
-tests/**/main
+dev/tests/**/main

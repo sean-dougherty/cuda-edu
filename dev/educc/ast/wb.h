@@ -1,6 +1,8 @@
 #pragma once
 
 #include <assert.h>
+#include <cmath>
+#include <iostream>
 #include <stdlib.h>
 
 #define ERROR 0

@@ -1,5 +1,1 @@
-#!/bin/bash
-
-set -e
-make
-../../scripts/run "$@"
+../../dev/etc/mp.sh

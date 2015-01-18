@@ -9,13 +9,14 @@ void process_var_decls(SourceEditor &editor, CXCursor decl);
 //---
 //------------------------------------------------------------
 int main(int argc, const char **argv) {
-    if(argc != 2) {
-        err("usage: educc-ast path_cpp");
+    if(argc != 3) {
+        err("usage: educc-ast include path_cpp");
     }
-    string path_in = argv[1];
+    string include = argv[1];
+    string path_in = argv[2];
 
     CXIndex index = clang_createIndex(1, 1);
-    vector<const char *> clang_args = {AST_INCLUDE, "-x", "cuda"};
+    vector<const char *> clang_args = {include.c_str(), "-x", "cuda"};
     CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index,
                                                                      path_in.c_str(),
                                                                      clang_args.size(),
@@ -91,7 +92,7 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
             ss << spelling(a) << " ";
         }
         CXType t = type(var);
-        int initializer_skip = 0;
+        size_t initializer_skip = 0;
         if(is_single_pointer(t)) {
             ss << "edu::guard::ptr_guard_t<" << clang_getPointeeType(t) << "> " << spelling(var);
         } else if(::is_array(t)) {

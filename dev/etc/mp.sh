@@ -1,4 +1,8 @@
+#!/bin/bash
+
 set -e
+
+make
 
 if [ "$1" == "-g" ]; then
     shift
