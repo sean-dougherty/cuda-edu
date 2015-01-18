@@ -15,6 +15,39 @@ using namespace std;
 
 #define err(msg) {cerr << msg << endl; exit(1);}
 
+struct kernel_call_location {
+    unsigned start;
+    unsigned end;
+};
+
+string read_file(const string &path);
+vector<kernel_call_location> find_kernel_calls(const string &src);
+void transform_kernel_call(ostream &out, const string &src, kernel_call_location loc);
+void transform(ostream &out, const string &src, vector<kernel_call_location> &calls);
+
+//------------------------------------------------------------
+//---
+//--- main()
+//---
+//------------------------------------------------------------
+int main(int argc, const char **argv) {
+    if(argc != 2) {
+        err("usage: cu2cpp cu_path");
+    }
+    string cu_path = argv[1];
+    string cu_src{read_file(cu_path)};
+    vector<kernel_call_location> calls = find_kernel_calls(cu_src);
+
+    transform(cout, cu_src, calls);
+
+    return 0;
+}
+
+//------------------------------------------------------------
+//---
+//--- read_file()
+//---
+//------------------------------------------------------------
 string read_file(const string &path) {
     ifstream in(path);
     if(!in) {
@@ -31,14 +64,11 @@ string read_file(const string &path) {
     return result;
 }
 
-struct kernel_call_location {
-    unsigned start;
-    unsigned end;
-};
-ostream &operator<<(ostream &out, const kernel_call_location &loc) {
-    return out << "(" << loc.start << "," << loc.end << ")";
-}
-
+//------------------------------------------------------------
+//---
+//--- find_kernel_calls()
+//---
+//------------------------------------------------------------
 vector<kernel_call_location> find_kernel_calls(const string &src) {
     size_t pos = 0;
     vector<kernel_call_location> result;
@@ -78,6 +108,15 @@ vector<kernel_call_location> find_kernel_calls(const string &src) {
     return result;
 }
 
+//------------------------------------------------------------
+//---
+//--- transform_kernel_call()
+//---
+//--- goes to great pains to preserve original whitespace, like
+//--- newlines, so the generated source will match up with
+//--- the original source.
+//---
+//------------------------------------------------------------
 void transform_kernel_call(ostream &out,
                            const string &src,
                            kernel_call_location loc) {
@@ -112,6 +151,11 @@ void transform_kernel_call(ostream &out,
     out << '}';
 }
 
+//------------------------------------------------------------
+//---
+//--- transform()
+//---
+//------------------------------------------------------------
 void transform(ostream &out,
                const string &src,
                vector<kernel_call_location> &calls) {
@@ -124,17 +168,4 @@ void transform(ostream &out,
         offset = call.end;
     }
     out << (csrc + offset);
-}
-
-int main(int argc, const char **argv) {
-    if(argc != 2) {
-        err("usage: cu2cpp cu_path");
-    }
-    string cu_path = argv[1];
-    string cu_src{read_file(cu_path)};
-    vector<kernel_call_location> calls = find_kernel_calls(cu_src);
-
-    transform(cout, cu_src, calls);
-
-    return 0;
 }
