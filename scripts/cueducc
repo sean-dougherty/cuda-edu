@@ -6,22 +6,21 @@ import re
 import sys
 
 include = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'include')
+educc_home=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'educc')
+cu2cpp=os.path.join(educc_home, 'cu2cpp', 'educc-cu2cpp')
+ast=os.path.join(educc_home, 'ast', 'educc-ast')
+cxx='g++'
 
 path_in = sys.argv[1]
-path_out = os.path.join(os.path.dirname(path_in), '.' + os.path.basename(path_in) + "-cueducc.cpp")
+path_gen_cu2cpp = os.path.join(os.path.dirname(path_in), '.' + os.path.basename(path_in) + "-cu2cpp.cpp")
+path_gen_ast = os.path.join(os.path.dirname(path_in), '.' + os.path.basename(path_in) + "-ast.cpp")
 path_bin = os.path.splitext(path_in)[0]
 
-src_in = open(path_in).read()
-src_out = re.sub("([a-zA-Z_0-9]+)<<<(.+)>>>([^\(]*)\((.+);",
-				 r"{driver_t driver(\2); driver.invoke_kernel\3(\1,\4;}",
-				 src_in,
-				 flags = re.MULTILINE | re.DOTALL)
+def shell(cmd):
+	rc = os.system(cmd)
+	if rc != 0:
+		sys.exit(1)
 
-f = open(path_out, "w")
-f.write('#line 1 "%s"\n' % path_in)
-f.write(src_out)
-f.close()
-
-cmd = 'g++ -I%s -std=c++11 -fopenmp -g -o %s %s -lpthread' % (include, path_bin, path_out)
-rc = os.system(cmd)
-sys.exit(0 if rc == 0 else 1)
+shell(cu2cpp + ' ' + path_in + ' > ' + path_gen_cu2cpp)
+shell(ast + ' ' + path_gen_cu2cpp + ' > ' + path_gen_ast)
+shell(cxx + ' -I' + include + ' -std=c++11 -fopenmp -g -o ' + path_bin + ' ' + path_gen_ast + ' -lpthread')

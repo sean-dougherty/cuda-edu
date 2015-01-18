@@ -396,3 +396,21 @@ CXType get_array_type(CXType type) {
         type = clang_getElementType(type);
     } 
 }
+
+bool has_errors(CXTranslationUnit tu) {
+    unsigned n = clang_getNumDiagnostics(tu);
+    for(unsigned i = 0; i < n; i++) {
+        CXDiagnostic diag = clang_getDiagnostic(tu, i);
+        CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diag);
+        clang_disposeDiagnostic(diag);
+        switch(severity) {
+        case CXDiagnostic_Ignored:
+        case CXDiagnostic_Note:
+            // no-op
+            break;
+        default:
+            return true;
+        }
+    }
+    return false;
+}

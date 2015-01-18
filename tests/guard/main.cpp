@@ -13,7 +13,7 @@ using namespace edu::guard;
 void test_array() {
     const int N = 20;
     float x[N];
-    array_guard_t<float, N> gx;
+    array1_guard_t<float, N> gx;
 
     assert(sizeof(x) == sizeof(gx));
 
@@ -58,7 +58,7 @@ void test_array2() {
     const int M = 30;
     const int N = 20;
     float x[M][N];
-    array_guard2_t<float, M, N> gx;
+    array2_guard_t<float, M, N> gx;
 
     assert(sizeof(x) == sizeof(gx));
 
@@ -106,7 +106,7 @@ void test_array3() {
     const int N = 20;
     const int O = 10;
     float x[M][N][O];
-    array_guard3_t<float, M, N, O> gx;
+    array3_guard_t<float, M, N, O> gx;
 
     assert(sizeof(x) == sizeof(gx));
 

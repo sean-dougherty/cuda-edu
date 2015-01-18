@@ -15,7 +15,7 @@ int main(int argc, const char **argv) {
     string path_in = argv[1];
 
     CXIndex index = clang_createIndex(1, 1);
-    vector<const char *> clang_args = {"-I./", "-x", "cuda"};
+    vector<const char *> clang_args = {AST_INCLUDE, "-x", "cuda"};
     CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index,
                                                                      path_in.c_str(),
                                                                      clang_args.size(),
@@ -41,7 +41,9 @@ int main(int argc, const char **argv) {
 
     editor.commit(SourceExtractor::get_file_buffer(path_in), cout);
 
+    bool errors = has_errors(tu);
     clang_disposeTranslationUnit(tu);
+    return errors ? 1 : 0;
 }
 
 //------------------------------------------------------------

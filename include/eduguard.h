@@ -97,7 +97,7 @@ namespace edu {
 
 
         template<typename T, int xlen>
-            struct array_guard_t {
+            struct array1_guard_t {
                 T data[xlen];
 
                 T &operator[](int i) {
@@ -120,10 +120,10 @@ namespace edu {
             };
 
         template<typename T, int xlen, int ylen>
-            struct array_guard2_t {
-                array_guard_t<T, ylen> data[xlen];
+            struct array2_guard_t {
+                array1_guard_t<T, ylen> data[xlen];
 
-                array_guard_t<T, ylen> &operator[](int i) {
+                array1_guard_t<T, ylen> &operator[](int i) {
                     edu_assert(i >= 0 && i < xlen);
                     return data[i]; 
                 }
@@ -134,10 +134,10 @@ namespace edu {
             };
 
         template<typename T, int xlen, int ylen, int zlen>
-            struct array_guard3_t {
-                array_guard2_t<T, ylen, zlen> data[xlen];
+            struct array3_guard_t {
+                array2_guard_t<T, ylen, zlen> data[xlen];
 
-                array_guard2_t<T, ylen, zlen> &operator[](int i) {
+                array2_guard_t<T, ylen, zlen> &operator[](int i) {
                     edu_assert(i >= 0 && i < xlen);
                     return data[i]; 
                 }

@@ -1,5 +1,30 @@
 #pragma once
 
+#include <assert.h>
+#include <stdlib.h>
+
+#define ERROR 0
+#define TRACE 0
+#define GPU 0
+#define wbLog(x...)
+#define wbTime_start(x...)
+#define wbTime_stop(x...)
+#define wbSolution(x...)
+
+typedef void *wbArg_t;
+wbArg_t wbArg_read(...);
+char *wbArg_getInputFile(...);
+void *wbImport(...);
+
+typedef void *wbImage_t;
+wbImage_t wbImage_new(...);
+void wbImage_delete(...);
+int wbImage_getWidth(...);
+int wbImage_getHeight(...);
+int wbImage_getChannels(...);
+float *wbImage_getData(...);
+wbImage_t wbImport(...);
+
 typedef unsigned int uint;
 
 template<typename T>
@@ -16,11 +41,18 @@ dim3 blockDim;
 uint3 threadIdx;
 uint3 blockIdx;
 
-struct driver_t {
-    driver_t(dim3, dim3);
-    void invoke_kernel(...);
+struct cudaDeviceProp {
+    char name[256];
+    int major;
+    int minor;
+    size_t totalGlobalMem;
+    size_t totalConstMem;
+    size_t sharedMemPerBlock;
+    int maxThreadsPerBlock;
+    int maxThreadsDim[3];
+    int maxGridSize[3];
+    int warpSize;
 };
-
 
 #define __shared__ __attribute__((annotate("__shared__")))
 #define __global__ __attribute__((annotate("__global__")))
@@ -28,7 +60,24 @@ struct driver_t {
 #define __host__ __attribute__((annotate("__host__")))
 #define static __attribute__((annotate("__static__")))
 
-void __device__ __syncthreads();
-#define min(a,b) a
+enum cudaError_t {
+    cudaSuccess
+};
 
-#include <stdlib.h>
+void __device__ __syncthreads();
+cudaError_t cudaGetDeviceCount(...);
+cudaError_t cudaGetDeviceProperties(...);
+cudaError_t cudaMalloc(...);
+cudaError_t cudaFree(...);
+cudaError_t cudaMemcpy(...);
+cudaError_t cudaDeviceSynchronize(...);
+cudaError_t cudaThreadSynchronize(...);
+#define cudaMemcpyHostToDevice 0
+#define cudaMemcpyDeviceToHost 0
+#define min(a,b) a
+#define max(a,b) a
+
+struct driver_t {
+    driver_t(dim3, dim3);
+    void invoke_kernel(...);
+};
