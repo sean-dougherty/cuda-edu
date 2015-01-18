@@ -38,6 +38,7 @@ int main(int argc, const char **argv) {
     string cu_src{read_file(cu_path)};
     vector<kernel_call_location> calls = find_kernel_calls(cu_src);
 
+    cout << "#line 1 \"" << cu_path << "\"" << endl;
     transform(cout, cu_src, calls);
 
     return 0;
