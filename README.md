@@ -14,7 +14,7 @@ code into standard C++ code that can be executed on your CPU.
 ## Why use it?
 
 You can do local development and use your debugger to step through your code as it executes
-on your CPU. Also, cuda-edu injects codes that will detect buffer overflows. You program
+on your CPU. Also, cuda-edu injects code that will detect buffer overflows. You program
 will trap immediately if you try to dereference your host, device-global, or device-shared
 buffers.
 
@@ -107,7 +107,7 @@ you include *wb.h*:
 
 # Getting Started on Linux
 
-*cuda-edu on Linux requires libclang, GNU Make, and a C++ compiler with full c++11 support (e.g. g++ 4.8 or higher).
+*cuda-edu on Linux requires libclang, GNU Make, and a C++ compiler with full c++11 support (e.g. g++ 4.8 or higher).*
 
 ## Install git, compiler, and libclang ##
 *These instructions are for an Ubuntu system. You may need to do something slightly different
