@@ -1,11 +1,11 @@
-############# INPUT PARAMTERS #############
+############# INPUT PARAMETERS #############
 # example: /usr/bin/clang++
 CXX=__configure_cxx__
 # Must contain clang-c/Index.h. examples: /usr/include, /usr/lib/llvm-3.4/include
 clang_include=__configure_clang_include__
-# Must contain libclang.so. examples: /usr/lib, /usr/lib/llvm-3.4//lib
+# Must contain libclang.so. examples: /usr/lib, /usr/lib/llvm-3.4/lib
 clang_lib=__configure_clang_lib__
-##########################################
+###########################################
 
 COMMON_CXXFLAGS=-std=c++11 -g -Wall -lrt
 
