@@ -2,3 +2,4 @@ mymp/
 mp/**/mp
 mp/**/.mp*
 dev/tests/**/main
+Makefile.conf

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -e
+
+function err() {
+    echo
+    echo "$@" 2>&1
+    exit 1
+}
+
+printf "Looking for c++ compiler... "
+cxx=$(which clang++ 2>/dev/null)
+if [ -z "$cxx" ]; then
+    cxx=$(which g++ 2>/dev/null)
+fi
+if [ -z "$cxx" ]; then
+    err "Cannot locate c++ compiler."
+fi
+echo "OK: $cxx"
+
+search__clang_index_h='*/clang-c/Index.h'
+printf "Searching for ${search__clang_index_h=}... "
+clang_index_h=$(find /usr -path "${search__clang_index_h=}" | tail -1)
+if [ -z "$clang_index_h" ]; then
+    err "Cannot locate libclang headers -- looking for ${search__clang_index_h}"
+fi
+clang_include=$(dirname $(dirname ${clang_index_h}))
+echo "OK: $clang_include"
+
+search__libclang_so='*/libclang.so'
+printf "Searching for ${search__libclang_so=}... "
+libclang_so=$(find /usr -path "${search__libclang_so=}" | tail -1)
+if [ -z "$libclang_so" ]; then
+    err "Cannot locate libclang headers -- looking for ${search__libclang_so}"
+fi
+clang_lib=$(dirname ${libclang_so})
+echo "OK: $clang_lib"
+
+echo "generating Makefile.conf..."
+sed -e "s|__configure_cxx__|$cxx|" \
+    -e "s|__configure_clang_include__|$clang_include|" \
+    -e "s|__configure_clang_lib__|$clang_lib|" \
+    Makefile.conf.in > Makefile.conf

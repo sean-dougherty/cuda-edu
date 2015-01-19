@@ -7,9 +7,10 @@ ${target}: main
 	mkdir -p $(shell dirname ${target})
 	cp main ${target}
 
-educc-cu2cpp: main.cpp ${conf} Makefile
-	${CXX} ${CXXFLAGS} -o $@ $<
+main: main.cpp ${conf} Makefile
+	${CXX} $< -o $@ ${CU2CPP_CXXFLAGS}
 
 .PHONY: clean
 clean:
-	rm -f educc-cu2cpp
+	rm -f main
+	rm -f ${target}

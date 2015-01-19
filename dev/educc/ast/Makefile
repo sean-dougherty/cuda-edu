@@ -9,7 +9,7 @@ ${target}: main
 	cp main ${target}
 
 main: main.cpp cxutil.h ${conf} Makefile
-	${CXX} ${CXXFLAGS} -o $@ ${CLANG_FLAGS} "-DAST_INCLUDE=\"${ast_include}\"" $< ${CLANG_LIBS}
+	${CXX} $< -o $@ "-DAST_INCLUDE=\"${ast_include}\"" ${AST_CXXFLAGS}
 
 .PHONY: clean
 clean:
