@@ -151,6 +151,7 @@ cp main ../../bin/educc-cu2cpp
 make[1]: Leaving directory `/tmp/cuda-edu/dev/educc/cu2cpp'
 ```
 
+### configure workaround
 If the configure step fails, then you can manually configure. Create a *Makefile.conf*:
 ```
 cp Makefile.conf.in Makefile.conf
