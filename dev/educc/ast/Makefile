@@ -1,7 +1,6 @@
 conf=../../../Makefile.conf
 include ${conf}
 
-ast_include=-I${PWD}
 target=../../bin/educc-ast
 
 ${target}: main
@@ -9,7 +8,7 @@ ${target}: main
 	cp main ${target}
 
 main: main.cpp cxutil.h ${conf} Makefile
-	${CXX} $< -o $@ "-DAST_INCLUDE=\"${ast_include}\"" ${AST_CXXFLAGS}
+	${CXX} $< -o $@ ${AST_CXXFLAGS}
 
 .PHONY: clean
 clean:
