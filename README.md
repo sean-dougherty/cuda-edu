@@ -24,7 +24,7 @@ The primary requirements are a C++11 compiler and libclang. Currently, only Linu
 supported. Adding support for Mac should be fairly trivial. A Windows port would require
 a non-trivial effort, but shouldn't be too bad.
 
-For Linux installation instructions, please see [Getting Started on Linux](#Getting-Started-on-Linux).
+For Linux installation instructions, please see [Getting Started on Linux](#getting-started-on-linux).
 
 
 # Dispatchers
