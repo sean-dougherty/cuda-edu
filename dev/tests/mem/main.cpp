@@ -57,9 +57,58 @@ void test_free() {
     expect_fail( mem::dealloc(MemorySpace_Host, p) );
 }
 
+void test_set() {
+    const size_t N = 4;
+
+    mem::set_space(MemorySpace_Host);
+
+    {
+        char *hp = (char *)mem::alloc(MemorySpace_Host, N);
+
+        expect_fail(mem::set(MemorySpace_Device, hp, 0, N)); // wrong space
+        expect_fail(mem::set(MemorySpace_Host, hp, 0, N+1)); // bad size
+
+        mem::set(MemorySpace_Host, hp, 0, N);
+        for(size_t i = 0; i < N; i++) {
+            assert(hp[i] == 0);
+        }
+        mem::set(MemorySpace_Host, hp, 1, N);
+        for(size_t i = 0; i < N; i++) {
+            assert(hp[i] == 1);
+        }
+        mem::dealloc(MemorySpace_Host, hp);
+    }
+
+    {
+        char *dp = (char *)mem::alloc(MemorySpace_Device, N);
+
+        expect_fail(mem::set(MemorySpace_Host, dp, 0, N)); // wrong space
+        expect_fail(mem::set(MemorySpace_Device, dp, 0, N+1)); // bad size
+
+        {
+            mem::set(MemorySpace_Device, dp, 0, N);
+            mem::set_space(MemorySpace_Device);
+            for(size_t i = 0; i < N; i++) {
+                assert(dp[i] == 0);
+            }
+            mem::set_space(MemorySpace_Host);
+        }
+        {
+            mem::set(MemorySpace_Device, dp, 1, N);
+            mem::set_space(MemorySpace_Device);
+            for(size_t i = 0; i < N; i++) {
+                assert(dp[i] == 1);
+            }
+            mem::dealloc(MemorySpace_Device, dp);
+            mem::set_space(MemorySpace_Host);
+        }
+    }
+}
+
 int main(int argc, const char **argv) {
     test_find();
     test_free();
+    test_set();
 
     cout << "--- Passed mem tests ---" << endl;
 

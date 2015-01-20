@@ -13,6 +13,7 @@ namespace edu {
 
         enum cudaError_t {
             cudaSuccess,
+            cudaErrorInvalidDevicePointer,
             Not_Enough_Memory,
             Invalid_Device,
             Invalid_Grid_Dim,
@@ -25,6 +26,8 @@ namespace edu {
             switch(err) {
             case cudaSuccess:
                 return "Success";
+            case cudaErrorInvalidDevicePointer:
+                return "Not a valid device pointer";
             case Not_Enough_Memory:
                 return "Out of memory";
             case Invalid_Device:
@@ -63,6 +66,8 @@ namespace edu {
             int maxThreadsDim[3];
             int maxGridSize[3];
             int warpSize;
+            int maxThreadsPerMultiProcessor;
+            int multiProcessorCount;
         };
 
         cudaError_t cudaGetDeviceCount(int *count) {
@@ -89,6 +94,8 @@ namespace edu {
             prop->maxGridSize[1] = 65535;
             prop->maxGridSize[2] = 65535;
             prop->warpSize = 32;
+            prop->maxThreadsPerMultiProcessor = 2048;
+            prop->multiProcessorCount = 8;
 
             ret_err(cudaSuccess);
         }
@@ -165,6 +172,13 @@ namespace edu {
             mem::copy(memcpy_space[kind].dst, dst,
                       memcpy_space[kind].src, src,
                       count);
+            ret_err(cudaSuccess);
+        }
+
+        cudaError_t cudaMemset(void *devPtr,
+                               int value,
+                               size_t count) {
+            mem::set(mem::MemorySpace_Device, devPtr, value, count);
             ret_err(cudaSuccess);
         }
 

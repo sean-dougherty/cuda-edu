@@ -365,7 +365,7 @@ namespace edu {
         }
         template<typename T, typename... U>
             void __wbLog(T arg0, U... args) {
-            cout << arg0;
+            cout << arg0 << " ";
             __wbLog(args...);
         }
         template<typename... T>

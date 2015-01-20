@@ -204,5 +204,35 @@ namespace edu {
 #undef __acquire
 #undef __release
         }
+
+        void set(MemorySpace ptr_space, void *ptr, int value, size_t count) {
+            Buffer buf;
+            if(!find_buf(ptr, &buf)) {
+                //todo: refactor to share common logic with copy()
+                if(ptr_space == MemorySpace_Host) {
+                    warn_new();
+                    buf.addr = nullptr;
+                } else {
+                    edu_err("Invalid Device buffer specified.");
+                }
+            } else {
+                if(buf.space != ptr_space) {
+                    edu_err("Requesting to set buffer in " << ptr_space
+                            << " but provided address in " << buf.space);
+                }
+                if(buf.space != curr_space) {
+                    buf.activate();
+                }
+                if(!buf.is_valid(ptr, count)) {
+                    edu_err("Invalid address bounds.");
+                }
+            }
+
+            memset(ptr, value, count);
+
+            if(buf.addr && (buf.space != curr_space)) {
+                buf.deactivate();
+            }
+        }
     }
 }

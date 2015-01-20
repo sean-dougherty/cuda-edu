@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <cmath>
 #include <iostream>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define ERROR 0
@@ -54,6 +55,8 @@ struct cudaDeviceProp {
     int maxThreadsDim[3];
     int maxGridSize[3];
     int warpSize;
+    int maxThreadsPerMultiProcessor;
+    int multiProcessorCount;
 };
 
 #define __shared__ __attribute__((annotate("__shared__")))
@@ -72,6 +75,7 @@ cudaError_t cudaGetDeviceProperties(...);
 cudaError_t cudaMalloc(...);
 cudaError_t cudaFree(...);
 cudaError_t cudaMemcpy(...);
+cudaError_t cudaMemset(...);
 cudaError_t cudaDeviceSynchronize(...);
 cudaError_t cudaThreadSynchronize(...);
 #define cudaMemcpyHostToDevice 0
