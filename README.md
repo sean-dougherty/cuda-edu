@@ -6,6 +6,11 @@ It should be possible to use exactly the same source code with both cuda-edu and
 is not officially sanctioned by the staff of *Heterogenous Parallel Programming*, it is just
 a tool created by a CTA (Community Teaching Assistant).
 
+*Warning! cuda-edu currently has no notion of execution synchronization at the scope of
+the warp. This will not impact most students. This means that you cannot currently write
+code that depends upon all threads in a warp having a coherent view of memory -- you must
+use __synchthreads(). A fix is in the works.*
+
 ## What is it?
 
 cuda-edu, essentially, emulates nvcc, libwb, and the CUDA runtimes. It translates your CUDA
