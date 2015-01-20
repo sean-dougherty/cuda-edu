@@ -14,9 +14,9 @@ code into standard C++ code that can be executed on your CPU.
 ## Why use it?
 
 You can do local development and use your debugger to step through your code as it executes
-on your CPU. Also, cuda-edu injects code that will detect buffer overflows. You program
-will trap immediately if you try to dereference your host, device-global, or device-shared
-buffers.
+on your CPU. Also, cuda-edu injects code that will detect buffer overflows. Your program
+will trap immediately if you try to dereference a bad offset in your host, device-global,
+or device-shared buffers.
 
 ## System Requirements
 
