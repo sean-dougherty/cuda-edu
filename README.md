@@ -172,6 +172,10 @@ After this script runs, you should see a message like the following at the end:
 ```
 Unit tests passed.
 ```
+Now leave the unit tests directory:
+```
+cd ../..
+```
 
 ## Run MP0 (Device Query)
 ```
