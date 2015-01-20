@@ -1,6 +1,12 @@
-main: main.cpp $(wildcard ../../include/*.h) Makefile
-	g++ -g -std=c++11 -I../../include $< -o $@
+conf=../../../Makefile.conf
+include ${conf}
 
-.PHONY: run
+main: main.cpp $(wildcard ../../runtime/*.h) Makefile ${conf}
+	${CXX} -I../../runtime $< -o $@ ${RT_CXXFLAGS}
+
+.PHONY: run clean
 run: main
 	./main
+
+clean:
+	rm -f main

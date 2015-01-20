@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo "---"
+echo "--- Running all unit tests"
+echo "---"
+
+for x in */Makefile; do
+    pushd .
+    cd $(dirname $x)
+    make clean
+    make run
+    popd
+done
+    
+echo "Unit tests passed."

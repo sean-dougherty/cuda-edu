@@ -160,6 +160,19 @@ Now edit the portion of Makefile.conf within the "INPUT PARAMETERS" block for yo
 system by replacing the *\_\_configure...\_\_* text with the appropriate values for your
 system. Once you've done that, try executing *make* again.
 
+## Run Unit Tests
+
+Now verify your installation is correct:
+```
+cd dev/tests
+./run
+```
+
+After this script runs, you should see a message like the following at the end:
+```
+Unit tests passed.
+```
+
 ## Run MP0 (Device Query)
 ```
 cd mp/0
