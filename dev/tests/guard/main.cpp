@@ -165,7 +165,7 @@ void test_ptr() {
     __cmp();
 
     float *tp = p;
-    float *tgp = gp;
+    ptr_guard_t<float> tgp = gp;
 
     __foreach(assert(*tp++ == *tgp++));
 
@@ -176,7 +176,7 @@ void test_ptr() {
     tp = p;
     tgp = gp;
     tp = p + 2;
-    tgp = gp + 2;
+    tgp = tgp + 2;
     assert(*tp == *tgp);
     tp += 2;
     tgp += 2;
@@ -185,8 +185,8 @@ void test_ptr() {
     tgp -= 2;
     assert(*tp == *tgp);
 
-    expect_fail(gp + N + 1);
-    expect_fail(gp - 1);
+    expect_fail(*(gp + N + 1));
+    expect_fail(*(gp - 1));
 
 #undef __foreach
 #undef __cmp
@@ -209,6 +209,67 @@ void test_cudaMalloc() {
     expect_fail(p[N]);
 }
 
+void test_write_callback() {
+    clear_write_callback();
+    clear_write_callback();
+
+    function<void()> noop = [](){};
+
+    set_write_callback(noop);
+    clear_write_callback();
+
+    set_write_callback(noop);
+    clear_write_callback();
+    clear_write_callback();
+
+    set_write_callback(noop);
+    expect_fail(set_write_callback(noop));
+    clear_write_callback();
+        
+    {
+        int ncallback = 0;
+        function<void()> inc = [&ncallback]() {ncallback++;};
+        set_write_callback(inc);
+
+        const unsigned N = 10;
+        array1_guard_t<unsigned, N> x;
+        for(unsigned i = 0; i < N; i++) {
+            x[i] = i;
+        }
+        assert(ncallback == N);
+
+        ncallback = 0;
+        for(unsigned i = 0; i < N; i++) {
+            assert(x[i] == i);
+        }
+        assert(ncallback == 0);
+
+        clear_write_callback();
+    }
+
+    {
+        int ncallback = 0;
+        function<void()> inc = [&ncallback]() {ncallback++;};
+        set_write_callback(inc);
+
+        const unsigned N = 10;
+        ptr_guard_t<unsigned> x = (unsigned *)mem::alloc(mem::MemorySpace_Host, N * sizeof(unsigned));
+        for(unsigned i = 0; i < N; i++) {
+            x[i] = i;
+        }
+        assert(ncallback == N);
+
+        ncallback = 0;
+        for(unsigned i = 0; i < N; i++) {
+            assert(x[i] == i);
+        }
+        assert(ncallback == 0);
+
+        clear_write_callback();
+
+        mem::dealloc(mem::MemorySpace_Host, x);
+    }
+}
 
 int main(int argc, const char **argv) {
     test_array();
@@ -217,6 +278,8 @@ int main(int argc, const char **argv) {
 
     test_ptr();
     test_cudaMalloc();
+
+    test_write_callback();
 
     cout << "--- Passed guard tests ---" << endl;
 

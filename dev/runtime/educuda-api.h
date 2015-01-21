@@ -7,6 +7,8 @@
 #define __device__
 #define __host__
 
+#define EDU_CUDA_WARP_SIZE 32
+
 namespace edu {
     namespace cuda {
         using namespace std;
@@ -93,7 +95,7 @@ namespace edu {
             prop->maxGridSize[0] = 2147483647;
             prop->maxGridSize[1] = 65535;
             prop->maxGridSize[2] = 65535;
-            prop->warpSize = 32;
+            prop->warpSize = EDU_CUDA_WARP_SIZE;
             prop->maxThreadsPerMultiProcessor = 2048;
             prop->multiProcessorCount = 8;
 

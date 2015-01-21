@@ -1,6 +1,7 @@
 #pragma once
 
 #include <educuda-api.h>
+#include <eduguard.h>
 #include <edupfm.h>
 
 #include <assert.h>
@@ -42,6 +43,7 @@ namespace edu {
                 Spawn,
                 Run,
                 Sync,
+                SyncWarp,
                 Exit
             } status = Birth;
 
@@ -60,8 +62,14 @@ namespace edu {
                 edu_errif(!pfm::switch_fiber_context(&ctx, &ctx_main));
             }
 
+            void sync_warp() {
+                assert(status == Run);
+                status = SyncWarp;
+                edu_errif(!pfm::switch_fiber_context(&ctx, &ctx_main));
+            }
+
             void resume() {
-                assert(status == Sync);
+                assert( (status == Sync) || (status == SyncWarp) || (status == Spawn));
                 status = Run;
                 set_current();
                 edu_errif(!pfm::switch_fiber_context(&ctx_main, &ctx));
@@ -87,8 +95,6 @@ namespace edu {
                                         sizeof(stack),
                                         (pfm::fiber_context_entry_func_t)__run,
                                         this);
-
-                edu_errif(!pfm::switch_fiber_context(&ctx_main, &ctx));
             }
 
             fiber_t(uint3 idx_,
@@ -165,6 +171,7 @@ namespace edu {
                 };
 
                 mem::set_space(mem::MemorySpace_Device);
+                guard::set_write_callback([](){fiber_t::current->sync_warp();});
                 
                 cuda::gridDim = gridDim;
                 cuda::blockDim = blockDim;
@@ -187,21 +194,43 @@ namespace edu {
                                 fibers.emplace_back(tIdx, enter_kernel);
                                 fiber_t &f = fibers.back();
                                 f.spawn();
-                                fblock.update(f);
                             }
                         }
                     }
 
-                    while(!fblock.is_done()) {
+                    do {
                         fblock.reset();
+                        for(unsigned iwarp_start = 0;
+                            iwarp_start < ncuda_threads;
+                            iwarp_start += EDU_CUDA_WARP_SIZE) {
+
+                            bool in_sync_warp;
+                            bool first = true;
+                            do {
+                                in_sync_warp = false;
+                                unsigned iwarp_end = min(ncuda_threads, iwarp_start + EDU_CUDA_WARP_SIZE);
+                                for(unsigned ithread = iwarp_start;
+                                    ithread < iwarp_end;
+                                    ithread++) {
+
+                                    fiber_t &f = fibers[ithread];
+                                    if(first || (f.status == fiber_t::SyncWarp)) {
+                                        f.resume();
+                                        in_sync_warp |= (f.status == fiber_t::SyncWarp);
+                                    }
+                                }
+                                first = false;
+                            } while(in_sync_warp);
+                        }
+
                         for(fiber_t &f: fibers) {
-                            f.resume();
                             fblock.update(f);
                         }
-                    }
+                    } while(!fblock.is_done());
                 }
 
                 mem::set_space(mem::MemorySpace_Host);
+                guard::clear_write_callback();
             }
         };
 

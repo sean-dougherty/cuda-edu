@@ -2,14 +2,51 @@
 
 #include <edumem.h>
 
+#include <functional>
+
 namespace edu {
     namespace guard {
         using namespace std;
         using edu::mem::Buffer;
 
+        enum write_callback_state_t {
+            Write_Callback_Clear,
+            Write_Callback_Set
+        } write_callback_state = Write_Callback_Clear;
+        
+        function<void()> write_callback = [](){};
+
+        void set_write_callback(function<void()> write_callback_) {
+            edu_assert(write_callback_state == Write_Callback_Clear);
+            write_callback = write_callback_;
+            write_callback_state = Write_Callback_Set;
+        }
+        
+        void clear_write_callback() {
+            write_callback = [](){};
+            write_callback_state = Write_Callback_Clear;
+        }
+
         template<typename T>
             struct ptr_guard_t {
-                T *ptr;
+                struct element_guard_t {
+                    T element;
+
+                    operator T&() {
+                        return element;
+                    }
+
+                    T operator=(T x) {
+                        element = x;
+                        write_callback();
+                        return element;
+                    }
+                };
+
+                static_assert(sizeof(element_guard_t) == sizeof(T), "element guard added padding!");
+                static_assert(alignof(element_guard_t) == alignof(T), "element guard added padding!");
+
+                element_guard_t *ptr;
                 Buffer buf;
                 void *buf_ptr; // detect when changed via cudaMalloc(void **);
 
@@ -19,13 +56,17 @@ namespace edu {
                     buf_ptr = nullptr;
                 }
 
-                ptr_guard_t(T *ptr_) : ptr(ptr_) {
+                ptr_guard_t(T *ptr) : ptr_guard_t((element_guard_t*)ptr) {
+                }
+                ptr_guard_t(element_guard_t *ptr_) : ptr(ptr_) {
                     if(!mem::find_buf(ptr, &buf)) {
                         buf = Buffer::get_universe();
                     }
                     buf_ptr = ptr;
                 }
-                ptr_guard_t(T *ptr_, Buffer buf_) : ptr(ptr_), buf(buf_), buf_ptr(ptr_) {
+                ptr_guard_t(T *ptr_, Buffer buf_) : ptr_guard_t((element_guard_t *)ptr_, buf_) {
+                }
+                ptr_guard_t(element_guard_t *ptr_, Buffer buf_) : ptr(ptr_), buf(buf_), buf_ptr(ptr_) {
                 }
 
                 void check_offset(int i) {
@@ -40,21 +81,20 @@ namespace edu {
                     }
                 }
 
-                T &operator[](int i) {
+                element_guard_t &operator[](int i) {
                     check_offset(i);
                     return ptr[i];
                 }
 
-                T &operator*() {
-                    return *ptr;
+                element_guard_t &operator*() {
+                    return (*this)[0];
                 }
 
                 operator T*() {
-                    return ptr;
+                    return (T*)ptr;
                 }
 
                 ptr_guard_t operator+(int i) {
-                    check_offset(i);
                     return ptr_guard_t(ptr + i, buf);
                 }
 
@@ -63,7 +103,6 @@ namespace edu {
                 }
 
                 ptr_guard_t &operator+=(int i) {
-                    check_offset(i);
                     ptr += i;
                     return *this;
                 }
@@ -98,23 +137,39 @@ namespace edu {
 
         template<typename T, int xlen>
             struct array1_guard_t {
-                T data[xlen];
+                struct element_guard_t {
+                    T element;
 
-                T &operator[](int i) {
+                    operator T&() {
+                        return element;
+                    }
+
+                    T operator=(T x) {
+                        element = x;
+                        write_callback();
+                        return element;
+                    }
+                };
+                static_assert(sizeof(element_guard_t) == sizeof(T), "element guard added padding!");
+                static_assert(alignof(element_guard_t) == alignof(T), "element guard added padding!");
+
+                element_guard_t data[xlen];
+
+                element_guard_t &operator[](int i) {
                     edu_assert(i >= 0 && i < xlen);
                     return data[i]; 
                 }
 
-                operator T*() {
+                operator element_guard_t*() {
                     return data;
                 }
 
-                T *operator+(int i) {
+                element_guard_t *operator+(int i) {
                     edu_assert(i >= 0 && (i*sizeof(T)) < sizeof(data));
                     return data + i;
                 }
 
-                T *operator-(int i) {
+                element_guard_t *operator-(int i) {
                     return *this + (-i);
                 }
             };

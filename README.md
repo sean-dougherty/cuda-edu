@@ -6,11 +6,6 @@ It should be possible to use exactly the same source code with both cuda-edu and
 is not officially sanctioned by the staff of *Heterogenous Parallel Programming*, it is just
 a tool created by a CTA (Community Teaching Assistant).
 
-*Warning! cuda-edu currently has no notion of execution synchronization at the scope of
-the warp. This will not impact most students. This means that you cannot currently write
-code that depends upon all threads in a warp having a coherent view of memory -- you must
-use __synchthreads(). A fix is in the works.*
-
 ## What is it?
 
 cuda-edu, essentially, emulates nvcc, libwb, and the CUDA runtimes. It translates your CUDA
@@ -54,6 +49,12 @@ the Sequential Dispatcher, you must place a *#define* directive before you inclu
 ```
 
 ## Threads Dispatcher
+
+*Warning! The Threads Dispatcher currently has no notion of execution synchronization at
+the scope of the warp. This means that you cannot count on threads in a warp executing
+in lockstep. Threads in a warp are only synchronized in the same sense as threads in
+a block, that is, via __synchthreads(). This is currently an open issue:
+https://github.com/sean-dougherty/cuda-edu/issues/1 . It will be resolved ASAP*
 
 This dispatcher provides proper parallelism, using an OS thread for each Cuda thread. This
 means *__syncthreads()* will work. Unfortunately, this can result in *a lot* of OS threads
