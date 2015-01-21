@@ -9,7 +9,7 @@ function err() {
 }
 
 printf "Looking for c++ compiler... "
-for x in clang++ g++; do
+for x in g++ clang++; do
     if which $x &>/dev/null; then
         cxx=$x
         break

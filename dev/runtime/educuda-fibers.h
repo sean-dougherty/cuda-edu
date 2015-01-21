@@ -1,14 +1,16 @@
 #pragma once
 
+#define EDU_CUDA_SHARED_STORAGE static thread_local
+
 #include <educuda-api.h>
 #include <eduguard.h>
 #include <edupfm.h>
 
 #include <assert.h>
 #include <functional>
+#include <omp.h>
 #include <vector>
 
-#define __shared__ static thread_local
 
 #if !defined(EDU_CUDA_FIBERS_OS_THREADS_COUNT)
     #define EDU_CUDA_FIBERS_OS_THREADS_COUNT 4
@@ -19,6 +21,9 @@ namespace edu {
 
         thread_local uint3 blockIdx;
         thread_local uint3 threadIdx;
+        thread_local guard::ptr_guard_t<char> dynamic_shared;
+
+#define __edu_cuda_get_dynamic_shared() dynamic_shared
 
         uint linearize(const dim3 &dim, uint3 idx) {
             return (dim.x*dim.y)*idx.z + idx.y*dim.x + idx.x;
@@ -152,11 +157,14 @@ namespace edu {
         struct driver_t {
             dim3 gridDim;
             dim3 blockDim;
+            unsigned int dynamic_shared_size;
 
             driver_t(dim3 gridDim_,
-                     dim3 blockDim_)
+                     dim3 blockDim_,
+                     unsigned int dynamic_shared_size_ = 0)
             : gridDim(gridDim_)
-            , blockDim(blockDim_) {
+            , blockDim(blockDim_)
+            , dynamic_shared_size(dynamic_shared_size_){
             }
 
             template<typename... T>
@@ -172,6 +180,14 @@ namespace edu {
 
                 mem::set_space(mem::MemorySpace_Device);
                 guard::set_write_callback([](){fiber_t::current->sync_warp();});
+
+                char *all_dynamic_shared[EDU_CUDA_FIBERS_OS_THREADS_COUNT];
+                if(dynamic_shared_size) {
+                    for(int i = 0; i < EDU_CUDA_FIBERS_OS_THREADS_COUNT; i++) {
+                        all_dynamic_shared[i] = (char *)mem::alloc(mem::MemorySpace_Device, dynamic_shared_size);
+                        edu_errif(!all_dynamic_shared[i]);
+                    }
+                }
                 
                 cuda::gridDim = gridDim;
                 cuda::blockDim = blockDim;
@@ -184,6 +200,10 @@ namespace edu {
                     blockIdx = delinearize(gridDim, iblock);
                     vector<fiber_t> fibers;
                     fibers.reserve(ncuda_threads);
+
+                    if(dynamic_shared_size) {
+                        dynamic_shared = all_dynamic_shared[omp_get_thread_num()];
+                    }
                             
                     fibers_block_t fblock{ncuda_threads};
 
@@ -227,6 +247,12 @@ namespace edu {
                             fblock.update(f);
                         }
                     } while(!fblock.is_done());
+                }
+
+                if(dynamic_shared_size) {
+                    for(int i = 0; i < EDU_CUDA_FIBERS_OS_THREADS_COUNT; i++) {
+                        mem::dealloc(mem::MemorySpace_Device, all_dynamic_shared[i]);
+                    }
                 }
 
                 mem::set_space(mem::MemorySpace_Host);

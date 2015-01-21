@@ -224,6 +224,17 @@ bool has_child(CXCursor cursor,
     return result;
 }
 
+bool has_annotation(CXCursor cursor, const string &annspelling) {
+    return has_child(cursor, [&annspelling](CXCursor c) {
+            return (c.kind == CXCursor_AnnotateAttr)
+                && (spelling(c) == annspelling);
+        });
+}
+
+bool is_extern(CXCursor cursor) {
+    return clang_getCursorLinkage(cursor) == CXLinkage_External;
+}
+
 void dump_tree(CXCursor cursor, string indent = "") {
     cout << indent << str(kind(cursor)) << "  " << str(cursor);
     auto children = get_children(cursor);
@@ -378,6 +389,11 @@ bool is_single_pointer(CXType type) {
 bool is_array(CXType type) {
     CXType etype = clang_getElementType(type);
     return etype.kind != CXType_Invalid;
+}
+
+bool is_empty_array(CXType type) {
+    return ::is_array(type)
+        && (clang_getNumElements(type) < 0);
 }
 
 vector<llong> get_array_dims(CXType type) {

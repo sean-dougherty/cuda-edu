@@ -7,8 +7,10 @@ clang_include=__configure_clang_include__
 clang_lib=__configure_clang_lib__
 ###########################################
 
-COMMON_CXXFLAGS=-std=c++11 -g -Wall -lrt
+COMMON_CXXFLAGS=-std=c++11 -g -Wall
 
-AST_CXXFLAGS=-O2 -I${clang_include} -L${clang_lib} -lclang ${COMMON_CXXFLAGS}
-CU2CPP_CXXFLAGS=-O2 ${COMMON_CXXFLAGS}
-RT_CXXFLAGS=-O0 -fopenmp -lpthread ${COMMON_CXXFLAGS}
+AST_CXXFLAGS=-O2 -I${clang_include} -L${clang_lib} -lclang ${COMMON_CXXFLAGS} -lrt
+CU2CPP_CXXFLAGS=-O2 ${COMMON_CXXFLAGS} -lrt
+
+RT_CXXFLAGS_PASS0=-c -O0 -fopenmp ${COMMON_CXXFLAGS} -DEDU_CUDA_COMPILE_PASS=0
+RT_CXXFLAGS_PASS1=-O0 -fopenmp -lpthread ${COMMON_CXXFLAGS} -lrt -DEDU_CUDA_COMPILE_PASS=1

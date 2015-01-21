@@ -1,13 +1,13 @@
 #pragma once
 
+#define EDU_CUDA_SHARED_STORAGE static
+
 #include <condition_variable>
 #include <thread>
 #include <mutex>
 #include <vector>
 
 #include <educuda-api.h>
-
-#define __shared__ static
 
 namespace edu {
     namespace cuda {

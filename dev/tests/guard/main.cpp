@@ -158,7 +158,7 @@ void test_ptr() {
     ptr_guard_t<float> gp = (float*)mem::alloc(mem::MemorySpace_Host, N * sizeof(float));
     float *p = new float[100];
 
-#define __foreach(stmt) for(int i = 0; i < N; i++) {stmt;}
+#define __foreach(stmt) for(size_t i = 0; i < N; i++) {stmt;}
 #define __cmp() __foreach(assert(p[i] == gp[i]));
 
     __foreach(p[i] = i+1; gp[i] = i+1);
@@ -202,7 +202,7 @@ void test_cudaMalloc() {
     ptr_guard_t<float> p;
     __malloc((void**)&p, sizeof(float)*N);
 
-    for(int i = 0; i < N; i++)
+    for(size_t i = 0; i < N; i++)
         p[i] = i;
 
     expect_fail(p[-1]);

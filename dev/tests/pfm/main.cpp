@@ -62,7 +62,7 @@ void test_atomic() {
 
         accum = 0;
         vector<unique_ptr<thread>> threads;
-        for(int i = 0; i < NTHREADS; i++) {
+        for(unsigned int i = 0; i < NTHREADS; i++) {
             threads.emplace_back(
                 new thread(
                     [&accum]() {
@@ -84,7 +84,7 @@ void test_atomic() {
 
         accum = 0;
         vector<unique_ptr<thread>> threads;
-        for(int i = 0; i < NTHREADS; i++) {
+        for(unsigned int i = 0; i < NTHREADS; i++) {
             threads.emplace_back(
                 new thread(
                     [&accum]() {

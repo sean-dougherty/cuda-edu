@@ -1,5 +1,7 @@
 #pragma once
 
+//todo: prevent writes to __constant__ in kernel
+
 #include <edumem.h>
 
 #include <functional>
@@ -88,6 +90,11 @@ namespace edu {
 
                 element_guard_t &operator*() {
                     return (*this)[0];
+                }
+
+                template<typename U>
+                operator U*() {
+                    return (U*)ptr;
                 }
 
                 operator T*() {

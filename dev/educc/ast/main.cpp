@@ -88,34 +88,50 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
 
     stringstream ss;
     for(CXCursor var: vars) {
-        for(CXCursor a: get_children(var, CXCursor_AnnotateAttr)) {
-            ss << spelling(a) << " ";
-        }
-        CXType t = type(var);
-        size_t initializer_skip = 0;
-        if(is_single_pointer(t)) {
-            ss << "edu::guard::ptr_guard_t<" << clang_getPointeeType(t) << "> " << spelling(var);
-        } else if(::is_array(t)) {
-            vector<llong> dims = get_array_dims(t);
-            if(dims.size() < 1 || dims.size() > 3) {
-                cerr(var, "Unsuppored array dimensions");
+        if(is_extern(var) && has_annotation(var, "__shared__")) {
+            CXType t = type(var);
+            CXType pointee_type;
+            if(is_single_pointer(t)) {
+                pointee_type = clang_getPointeeType(t);
+            } else if(is_empty_array(t)) {
+                pointee_type = clang_getElementType(t);
+            } else {
+                cerr(var, "Expect extern __shared__ to be pointer or empty array.");
             }
-            ss << "edu::guard::array" << dims.size() << "_guard_t";
-            ss << "<" << get_array_type(t);
-            for(llong dim: dims) {
-                ss << ", " << dim;
-            }
-            ss << "> ";
-            ss << spelling(var);
-            initializer_skip = dims.size();
+            ss << "edu::guard::ptr_guard_t<" << spelling(pointee_type) << "> " << spelling(var)
+               << " = (" << spelling(pointee_type) << "*)__edu_cuda_get_dynamic_shared();";
         } else {
-            ss << type(var) << " " << spelling(var);
+            for(CXCursor a: get_children(var, CXCursor_AnnotateAttr)) {
+                ss << spelling(a) << " ";
+            }
+            CXType t = type(var);
+            size_t initializer_skip = 0;
+            if(is_single_pointer(t)) {
+                ss << "edu::guard::ptr_guard_t<" << clang_getPointeeType(t) << "> " << spelling(var);
+            } else if(is_empty_array(t)) {
+                ss << "edu::guard::ptr_guard_t<" << clang_getElementType(t) << "> " << spelling(var);
+            } else if(::is_array(t)) {
+                vector<llong> dims = get_array_dims(t);
+                if(dims.size() < 1 || dims.size() > 3) {
+                    cerr(var, "Unsuppored array dimensions");
+                }
+                ss << "edu::guard::array" << dims.size() << "_guard_t";
+                ss << "<" << get_array_type(t);
+                for(llong dim: dims) {
+                    ss << ", " << dim;
+                }
+                ss << "> ";
+                ss << spelling(var);
+                initializer_skip = dims.size();
+            } else {
+                ss << type(var) << " " << spelling(var);
+            }
+            vector<CXCursor> init = get_children(var, p_not(p_kind(CXCursor_AnnotateAttr)));
+            if(init.size() > initializer_skip) {
+                ss << " = " << SourceExtractor::extract(start(init[initializer_skip]), end(init.back()));
+            }
+            ss << "; ";
         }
-        vector<CXCursor> init = get_children(var, p_not(p_kind(CXCursor_AnnotateAttr)));
-        if(init.size() > initializer_skip) {
-            ss << " = " << SourceExtractor::extract(start(init[initializer_skip]), end(init.back()));
-        }
-        ss << "; ";
     }
 
     editor.replace(start(decl), end(decl), ss.str());

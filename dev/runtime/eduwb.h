@@ -43,7 +43,7 @@ namespace edu {
             }
 
             char *get_input_path(int index) {
-                if( (index >= input_paths.size()) || !input_paths[index] ) {
+                if( (index >= (int)input_paths.size()) || !input_paths[index] ) {
                     string base;
                     {
                         stringstream ss;
@@ -51,7 +51,7 @@ namespace edu {
                         base = ss.str();
                     }
                     unique_ptr<char> path = find_path(base);
-                    if(input_paths.size() <= index) {
+                    if((int)input_paths.size() <= index) {
                         input_paths.resize(index+1);
                     }
                     input_paths[index] = std::move(path);

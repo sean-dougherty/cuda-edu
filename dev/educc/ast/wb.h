@@ -63,6 +63,7 @@ struct cudaDeviceProp {
 #define __global__ __attribute__((annotate("__global__")))
 #define __device__ __attribute__((annotate("__device__")))
 #define __host__ __attribute__((annotate("__host__")))
+#define __constant__ __attribute__((annotate("__constant__")))
 #define static __attribute__((annotate("__static__")))
 
 enum cudaError_t {
@@ -75,6 +76,7 @@ cudaError_t cudaGetDeviceProperties(...);
 cudaError_t cudaMalloc(...);
 cudaError_t cudaFree(...);
 cudaError_t cudaMemcpy(...);
+cudaError_t cudaMemcpyToSymbol(...);
 cudaError_t cudaMemset(...);
 cudaError_t cudaDeviceSynchronize(...);
 cudaError_t cudaThreadSynchronize(...);
@@ -85,5 +87,6 @@ cudaError_t cudaThreadSynchronize(...);
 
 struct driver_t {
     driver_t(dim3, dim3);
+    driver_t(dim3, dim3, unsigned int);
     void invoke_kernel(...);
 };

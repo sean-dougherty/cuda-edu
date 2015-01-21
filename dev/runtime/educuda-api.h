@@ -6,6 +6,24 @@
 #define __global__
 #define __device__
 #define __host__
+#define __constant__
+
+#ifndef EDU_CUDA_SHARED_STORAGE
+    #error "Cannot find definition of EDU_CUDA_SHARED_STORAGE"
+#endif
+
+#ifndef EDU_CUDA_COMPILE_PASS
+    #error "EDU_CUDA_COMPILE_PASS not defined!"
+#endif
+
+#if EDU_CUDA_COMPILE_PASS == 0
+    // For the initial pass, we just have to define this away. We need the AST
+    // to do some transforms on shared variables first, otherwise we can get
+    // some illegal declarations, like "extern static".
+    #define __shared__
+#else
+    #define __shared__ EDU_CUDA_SHARED_STORAGE
+#endif
 
 #define EDU_CUDA_WARP_SIZE 32
 
@@ -38,6 +56,8 @@ namespace edu {
                 return "Illegal gridDim";
             case Invalid_Block_Dim:
                 return "Illegal blockDim";
+            default:
+                abort();
             }
         }
 
@@ -47,7 +67,7 @@ namespace edu {
             struct vec3 {
                 T x, y, z;
 
-            vec3() : vec3(0) {}
+            vec3() : vec3(0,0,0) {}
 
             vec3(T x_, T y_ = 1, T z_ = 1)
             : x(x_), y(y_), z(z_) {
@@ -55,7 +75,7 @@ namespace edu {
             };
 
         typedef vec3<uint> uint3;
-        typedef vec3<int> dim3;
+        typedef vec3<uint> dim3;
 
         struct cudaDeviceProp {
             char name[256];
@@ -106,19 +126,20 @@ namespace edu {
             cudaDeviceProp prop;
             cudaGetDeviceProperties(&prop, 0);
 
-            if( (gridDim.x > prop.maxGridSize[0])
-                || (gridDim.y > prop.maxGridSize[1])
-                || (gridDim.z > prop.maxGridSize[2]) ) {
+#define __dim_invalid(DIM, MAXSZ) (DIM.x > (uint)prop.MAXSZ[0])     \
+                || (DIM.y > (uint)prop.MAXSZ[1])                    \
+                || (DIM.z > (uint)prop.MAXSZ[2])
+
+            if(__dim_invalid(gridDim, maxGridSize)) {
                 ret_err(Invalid_Grid_Dim);
             }
-
-            if( (blockDim.x > prop.maxThreadsDim[0])
-                || (blockDim.y > prop.maxThreadsDim[1])
-                || (blockDim.z > prop.maxThreadsDim[2]) ) {
+            if(__dim_invalid(blockDim, maxThreadsDim)) {
                 ret_err(Invalid_Block_Dim);
             }
 
-            if( (blockDim.x * blockDim.y * blockDim.z) > prop.maxThreadsPerBlock ) {
+#undef __dim_invalid
+
+            if( (blockDim.x * blockDim.y * blockDim.z) > (uint)prop.maxThreadsPerBlock ) {
                 ret_err(Invalid_Block_Dim);
             }
 
@@ -174,6 +195,22 @@ namespace edu {
             mem::copy(memcpy_space[kind].dst, dst,
                       memcpy_space[kind].src, src,
                       count);
+            ret_err(cudaSuccess);
+        }
+
+        cudaError_t cudaMemcpyToSymbol(const void *symbol,
+                                       const void *src,
+                                       size_t count,
+                                       size_t offset = 0,
+                                       cudaMemcpyKind kind = cudaMemcpyHostToDevice) {
+            //todo: properly implement. check buffer types, but cope with buffers
+            //declared as globals.
+            memcpy((char*)symbol + offset, src, count);
+/*
+            mem::copy(memcpy_space[kind].dst, (void *)((char*)symbol + offset),
+                      memcpy_space[kind].src, src,
+                      count);
+*/
             ret_err(cudaSuccess);
         }
 
