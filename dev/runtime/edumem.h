@@ -11,9 +11,8 @@ namespace edu {
     namespace mem {
         using namespace std;
 
-        enum MemorySpace {
-            MemorySpace_Host = 0, MemorySpace_Device = 1, MemorySpace_Unknown = 2, __MemorySpace_N = 3
-        };
+        enum MemorySpace {MemorySpace_Host, MemorySpace_Device, MemorySpace_Unknown};
+
         ostream &operator<<(ostream &out, MemorySpace space) {
             switch(space) {
             case MemorySpace_Host: return out << "Host";
@@ -43,118 +42,97 @@ namespace edu {
             void *addr;
             size_t len;
             MemorySpace space;
+            bool alloced;
 
             static Buffer alloc(MemorySpace space, unsigned len) {
-                Buffer buf;
-                buf.addr = pfm::alloc(len);
-                edu_errif(buf.addr == nullptr);
-                buf.len = len;
-                buf.space = space;
-                return buf;
+                return {malloc(len), len, space, true};
+            }
+
+            // register
+            static Buffer reg(MemorySpace space, void *addr, size_t len) {
+                return {addr, len, space, false};
             }
 
             static Buffer get_universe() {
-                return {nullptr, ~size_t(0), MemorySpace_Unknown};
+                return {nullptr, ~size_t(0), MemorySpace_Unknown, false};
             }
 
             static Buffer get_uninitialized() {
-                return {nullptr, 0, MemorySpace_Unknown};
+                return {nullptr, 0, MemorySpace_Unknown, false};
             }
 
             void dealloc() {
-                edu_errif(!pfm::dealloc(addr, len));
+                if(!alloced) {
+                    edu_err("Cannot free memory that wasn't malloc'd");
+                }
+                free(addr);
             }
 
-            void activate() {
-                edu_errif(!pfm::set_mem_access(addr, len, pfm::MemAccess_ReadWrite));
+            bool is_valid_space() {
+                return (space == curr_space)
+                    || (space == MemorySpace_Unknown);
             }
 
-            void deactivate() {
-                edu_errif(!pfm::set_mem_access(addr, len, pfm::MemAccess_None));
-            }
-
-            bool is_valid(const void *addr, unsigned len) {
-                return (addr >= this->addr)
+            bool is_valid(const void *addr, unsigned len, bool check_space = true) {
+                return (!check_space || is_valid_space())
+                    && (addr >= this->addr)
                     && ((const char*)addr + len) <= ((const char*)this->addr + this->len);
             }
 
             bool is_valid_offset(void *ptr, signed offset) {
-                return ((char*)ptr + offset >= (char*)addr)
+                return is_valid_space()
+                    && ((char*)ptr + offset >= (char*)addr)
                     && ((char*)ptr + offset < (char*)addr + len);
             }
         };
 
         typedef map<AddressRange, Buffer> BufferMap;
-        BufferMap spaces[__MemorySpace_N];
+        BufferMap buffers;
 
         void warn_new() {
             edu_warn("Unknown memory location, did you use new or shared_ptr/unique_ptr? Please use malloc() or cudaMallocHost() so that errors can be more easily detected by cuda-edu.");
         }
 
-        bool find_buf(const void *addr, Buffer *buf, BufferMap **bufmap = nullptr) {
-#define __tryget(space) {                                               \
-                auto it = spaces[space].find({addr,1});                 \
-                if(it != spaces[space].end()) {                         \
-                    if(bufmap) *bufmap = &spaces[space];                \
-                    *buf = it->second;                                  \
-                    return true;                                        \
-                }                                                       \
+        bool find_buf(const void *addr, Buffer *buf, size_t len = 1) {
+            auto it = buffers.find({addr,len});
+            if(it != buffers.end()) {
+                *buf = it->second;
+                return true;
             }
-
-            __tryget(MemorySpace_Host);
-            __tryget(MemorySpace_Device);
-#undef __tryget
             return false;
         }
 
-        void activate_space(MemorySpace space) {
-            BufferMap &bufs = spaces[space];
-            for(auto &kv: bufs) {
-                Buffer &buf = kv.second;
-                buf.activate();
-            }
-        }
-
-        void deactivate_space(MemorySpace space) {
-            BufferMap &bufs = spaces[space];
-            for(auto &kv: bufs) {
-                Buffer &buf = kv.second;
-                buf.deactivate();
-            }
-        }
-
         void set_space(MemorySpace space) {
-            activate_space(space);
-            deactivate_space(MemorySpace((space + 1) % __MemorySpace_N));
             curr_space = space;
+        }
+
+        void register_memory(MemorySpace space, void *addr, size_t len) {
+            Buffer buf;
+            if(find_buf(addr, &buf, len)) {
+                edu_panic("Memory already registered!");
+            }
+            buf = Buffer::reg(space, addr, len);
+            buffers[{addr, len}] = buf;
         }
 
         void *alloc(MemorySpace space, unsigned len) {
             Buffer buf = Buffer::alloc(space, len);
-            if(space == curr_space) {
-                buf.activate();
-            } else {
-                buf.deactivate();
-            }
-            spaces[space][{buf.addr,buf.len}] = buf;
+            buffers[{buf.addr,buf.len}] = buf;
             return buf.addr;
         }
 
         void dealloc(MemorySpace space, void *addr) {
             Buffer buf;
-            BufferMap *bufmap;
-            if(!find_buf(addr, &buf, &bufmap)) {
+            if(!find_buf(addr, &buf)) {
                 edu_err("Invalid buffer.");
             }
             if(buf.addr != addr) {
                 edu_err("Attempting to free memory in middle of allocated buffer.");
             }
-
             if(space != buf.space) {
                 edu_err("Requested to free memory in " << space << ", but provided address in " << buf.space);
             }
-
-            bufmap->erase({buf.addr, buf.len});
+            buffers.erase({buf.addr, buf.len});
             buf.dealloc();
         }
 
@@ -165,11 +143,10 @@ namespace edu {
             Buffer dst_buf;
             Buffer src_buf;
 
-#define __acquire(BUF, SPACE, PTR, DIR) {                               \
+#define __check(BUF, SPACE, PTR, DIR) {                                 \
                 if(!find_buf(PTR, &BUF)) {                              \
                     if(SPACE == MemorySpace_Host) {                     \
                         warn_new();                                     \
-                        BUF.addr = nullptr;                             \
                     } else {                                            \
                         edu_err("Invalid Device buffer specified.");    \
                     }                                                   \
@@ -178,31 +155,18 @@ namespace edu {
                         edu_err("Attempting to copy " << DIR << " " << SPACE \
                                 << " but provided address in " << BUF.space); \
                     }                                                   \
-                    if(BUF.space != curr_space) {                       \
-                        BUF.activate();                                 \
-                    }                                                   \
-                    if(!BUF.is_valid(PTR, len)) {                       \
+                    if(!BUF.is_valid(PTR, len, false)) {                \
                         edu_err("Invalid '" << DIR << "' address or bounds."); \
                     }                                                   \
                 }                                                       \
             }
 
-#define __release(BUF) {                        \
-                if(BUF.addr && (BUF.space != curr_space)) { \
-                    BUF.deactivate();           \
-                }                               \
-            }
-
-            __acquire(dst_buf, dst_space, dst, "to");
-            __acquire(src_buf, src_space, src, "from");
+            __check(dst_buf, dst_space, dst, "to");
+            __check(src_buf, src_space, src, "from");
 
             memcpy(dst, src, len);
 
-            __release(dst_buf);
-            __release(src_buf);
-
-#undef __acquire
-#undef __release
+#undef __check
         }
 
         void set(MemorySpace ptr_space, void *ptr, int value, size_t count) {
@@ -211,7 +175,6 @@ namespace edu {
                 //todo: refactor to share common logic with copy()
                 if(ptr_space == MemorySpace_Host) {
                     warn_new();
-                    buf.addr = nullptr;
                 } else {
                     edu_err("Invalid Device buffer specified.");
                 }
@@ -220,19 +183,12 @@ namespace edu {
                     edu_err("Requesting to set buffer in " << ptr_space
                             << " but provided address in " << buf.space);
                 }
-                if(buf.space != curr_space) {
-                    buf.activate();
-                }
-                if(!buf.is_valid(ptr, count)) {
+                if(!buf.is_valid(ptr, count, false)) {
                     edu_err("Invalid address bounds.");
                 }
             }
 
             memset(ptr, value, count);
-
-            if(buf.addr && (buf.space != curr_space)) {
-                buf.deactivate();
-            }
         }
     }
 }

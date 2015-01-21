@@ -101,37 +101,9 @@ void test_atomic() {
     }
 }
 
-void test_alloc() {
-    const unsigned N = 10000;
-
-    char *x = (char *)alloc(N);
-    
-    for(unsigned i = 0; i < N; i++)
-        x[i] = i;
-
-    assert(dealloc(x, N));
-}
-
-void test_mprotect() {
-    const unsigned N = 10;
-
-    char *x = (char *)alloc(N);
-    x[0] = 1;
-    assert(1 == x[0]);
-
-    assert(set_mem_access(x, N, MemAccess_None));
-    // Can't easily do a pfm-agnostic test...
-    // Should verify sigsegv on access here.
-    assert(set_mem_access(x, N, MemAccess_ReadWrite));
-
-    assert(dealloc(x, N));
-}
-
 int main(int argc, const char **argv) {
     test_fiber();
     test_atomic();
-    test_alloc();
-    test_mprotect();
 
     cout << "--- Passed pfm tests ---" << endl;
 

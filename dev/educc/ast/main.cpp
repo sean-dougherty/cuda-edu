@@ -2,6 +2,7 @@
 
 void process_parm_decl(SourceEditor &editor, CXCursor decl);
 void process_var_decls(SourceEditor &editor, CXCursor decl);
+void process_globals(SourceEditor &editor, CXCursor tu, vector<CXCursor> &decls);
 
 //------------------------------------------------------------
 //---
@@ -26,18 +27,33 @@ int main(int argc, const char **argv) {
 
     SourceEditor editor;
 
-    vector<CXCursor> parm_decls = find(cursor, p_kind(CXCursor_ParmDecl), true);
-    for(auto &decl: parm_decls) {
-        if(file_location(start(decl)).path == path_in) {
-            process_parm_decl(editor, decl);
+    // Process all function parameters (e.g. add guards to pointers/arrays)
+    {
+        vector<CXCursor> parm_decls = find(cursor, p_kind(CXCursor_ParmDecl), true);
+        for(auto &decl: parm_decls) {
+            if(file_location(start(decl)).path == path_in) {
+                process_parm_decl(editor, decl);
+            }
         }
     }
 
-    vector<CXCursor> var_decls = find(cursor, p_kind(CXCursor_DeclStmt), true);
-    for(auto &decl: var_decls) {
-        if(file_location(start(decl)).path == path_in) {
-            process_var_decls(editor, decl);
+    // Process all variable declarations (e.g. add guards, dynamic shared initialization)
+    {
+        vector<CXCursor> var_decls = find(cursor, p_kind(CXCursor_DeclStmt), true);
+        for(auto &decl: var_decls) {
+            if(file_location(start(decl)).path == path_in) {
+                process_var_decls(editor, decl);
+            }
         }
+    }
+
+    // Register all global variables (for e.g. memcpyToSymbol)
+    {
+        vector<CXCursor> var_decls = get_children(cursor, [&path_in](CXCursor c) {
+                return (kind(c) == CXCursor_VarDecl)
+                && (file_location(start(c)).path == path_in);
+            });
+        process_globals(editor, cursor, var_decls);
     }
 
     editor.commit(SourceExtractor::get_file_buffer(path_in), cout);
@@ -72,7 +88,8 @@ void process_parm_decl(SourceEditor &editor, CXCursor decl) {
 //---
 //--- process_var_decls()
 //---
-//--- Protect any pointers or arrays with guards.
+//--- Protect any pointers or arrays with guards. Insert init
+//--- call for dynamic shared buffers.
 //---
 //------------------------------------------------------------
 void process_var_decls(SourceEditor &editor, CXCursor decl) {
@@ -135,4 +152,39 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
     }
 
     editor.replace(start(decl), end(decl), ss.str());
+}
+
+//------------------------------------------------------------
+//---
+//--- process_globals()
+//---
+//--- Register all globals so their size and memory space is
+//--- known.
+//---
+//------------------------------------------------------------
+void process_globals(SourceEditor &editor, CXCursor tu, vector<CXCursor> &decls) {
+    stringstream ss;
+    ss << "namespace edu { namespace gen {" << endl;
+    ss << "  static struct GlobalVariableRegistration {" << endl;
+    ss << "    GlobalVariableRegistration() {" << endl;
+
+    for(CXCursor var: decls) {
+        ss << "      edu::mem::register_memory(";
+        if( has_annotation(var, "__device__")
+            || has_annotation(var, "__constant__") ) {
+
+            ss << "edu::mem::MemorySpace_Device";
+        } else {
+            ss << "edu::mem::MemorySpace_Host";
+        }
+        ss << ", (void*)&(" << spelling(var) << ")";
+        ss << ", sizeof(" << spelling(var) << ")";
+        ss << ");" << endl;
+    }
+
+    ss << "    }" << endl;
+    ss << "  } global_registration;" << endl;
+    ss << "}}" << endl;
+    
+    editor.insert(end(tu), ss.str());
 }

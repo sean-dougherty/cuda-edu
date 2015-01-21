@@ -203,14 +203,9 @@ namespace edu {
                                        size_t count,
                                        size_t offset = 0,
                                        cudaMemcpyKind kind = cudaMemcpyHostToDevice) {
-            //todo: properly implement. check buffer types, but cope with buffers
-            //declared as globals.
-            memcpy((char*)symbol + offset, src, count);
-/*
             mem::copy(memcpy_space[kind].dst, (void *)((char*)symbol + offset),
                       memcpy_space[kind].src, src,
                       count);
-*/
             ret_err(cudaSuccess);
         }
 
