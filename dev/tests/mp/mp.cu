@@ -1,3 +1,5 @@
+// Sanity check that we can compile and execute a Cuda program.
+
 // MP 1
 #include <wb.h>
 #include <assert.h>
