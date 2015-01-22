@@ -6,9 +6,11 @@ CXX=__configure_cxx__
 CXXFLAGS=__configure_cxxflags__
 # Flags we should pass when we're linking. Example: -lrt -lpthread
 LDFLAGS=__configure_ldflags__
-# Must contain clang-c/Index.h. examples: /usr/include, /usr/lib/llvm-3.4/include
+# Must contain flag identifying directory containing clang-c/Index.h.
+# Examples: -I/usr/include, -I/usr/lib/llvm-3.4/include
 clang_include=__configure_clang_include__
-# Must contain libclang.so. examples: /usr/lib, /usr/lib/llvm-3.4/lib
+# Must contain flags necessary for linking to libclang.
+# Example: -L/usr/lib/llvm-3.4/lib -lclang
 clang_lib=__configure_clang_lib__
 ###########################################
 
