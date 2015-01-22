@@ -27,7 +27,7 @@ void test_fiber() {
             fiber->state++;
         }
     } fiber;
-    char stack[4096];
+    char stack[pfm::Min_Stack_Size];
 
     assert(init_fiber_context(&fiber.ctx_fiber,
                               &fiber.ctx_main,

@@ -12,7 +12,7 @@ clang_include=__configure_clang_include__
 clang_lib=__configure_clang_lib__
 ###########################################
 
-AST_CXXFLAGS=-O2 -I${clang_include} -L${clang_lib} -lclang ${CXXFLAGS} ${LDFLAGS}
+AST_CXXFLAGS=-O2 ${clang_include} ${clang_lib} ${CXXFLAGS} ${LDFLAGS}
 CU2CPP_CXXFLAGS=-O2 ${CXXFLAGS} ${LDFLAGS}
 
 RT_CXXFLAGS_PASS0=-c -O0 ${CXXFLAGS} -DEDU_CUDA_COMPILE_PASS=0

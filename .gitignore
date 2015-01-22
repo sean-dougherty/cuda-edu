@@ -4,3 +4,6 @@ mp/**/.mp*
 dev/tests/**/main
 Makefile.conf
 tmp
+*~
+dev/ext/
+*.dSYM

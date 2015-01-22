@@ -7,11 +7,12 @@ echo "--- Running all unit tests"
 echo "---"
 
 for x in */Makefile; do
-    pushd .
     cd $(dirname $x)
+    echo "=== Entering $PWD"
     make clean
     make run
-    popd
+    echo "=== Exiting $PWD"
+    cd ..
 done
     
 echo "Unit tests passed."

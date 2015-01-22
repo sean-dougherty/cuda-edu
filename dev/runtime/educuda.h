@@ -43,7 +43,7 @@ namespace edu {
             function<void()> enter_kernel;
             pfm::fiber_context_t ctx;
             pfm::fiber_context_t ctx_main;
-            char stack[4096];
+	    char stack[pfm::Min_Stack_Size];
             enum status_t {
                 Birth,
                 Spawn,
@@ -193,10 +193,10 @@ namespace edu {
                 cuda::gridDim = gridDim;
                 cuda::blockDim = blockDim;
                 
-                const size_t nblocks = gridDim.x * gridDim.y * gridDim.z;
-                const size_t ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
+                const unsigned nblocks = gridDim.x * gridDim.y * gridDim.z;
+                const unsigned ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
 
-                const size_t blocks_per_thread = nblocks / ncuda_threads;
+                const unsigned blocks_per_thread = nblocks / ncuda_threads;
 
                 vector<unique_ptr<thread>> threads;
                 // I would just use OpenMP here, but Apple.
@@ -204,8 +204,8 @@ namespace edu {
                     ithread < EDU_CUDA_FIBERS_OS_THREADS_COUNT;
                     ithread++) {
 
-                    size_t iblock_start = ithread * blocks_per_thread;
-                    size_t iblock_end = (ithread == EDU_CUDA_FIBERS_OS_THREADS_COUNT - 1) ? nblocks : iblock_start + nblocks;
+                    unsigned iblock_start = ithread * blocks_per_thread;
+                    unsigned iblock_end = (ithread == EDU_CUDA_FIBERS_OS_THREADS_COUNT - 1) ? nblocks : iblock_start + nblocks;
 
                     char *thread_dynamic_shared;
                     if(dynamic_shared_size) {

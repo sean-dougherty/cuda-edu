@@ -1,12 +1,19 @@
 #pragma once
 
-#ifdef __linux__
-#include <ucontext.h>
-#include <sys/mman.h>
+#ifdef __APPLE__
+    // The ucontext API is deprecated because of its non-conformant
+    // user entry prototype. The standard says "use threads!" but I
+    // really need fibers. I use the __FIBER_SIGNATURE macros as a
+    // sanity check to protect us when using this deprecated feature.
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    #define _XOPEN_SOURCE
 #endif
+
 
 #include <assert.h>
 #include <cstdlib>
+#include <ucontext.h>
 
 namespace edu {
     namespace pfm {
@@ -15,11 +22,11 @@ namespace edu {
 //--- Threads
 //------------------------------------------------------------
 #ifdef __linux__
-    #define edu_thread_local thread_local // c++11 STANDARD
+    #define edu_thread_local thread_local
 #endif
 
 #ifdef __APPLE__
-    #define edu_thread_local __thread // because we can't meet a 2011 standard by 2015... but we're so pretty!
+    #define edu_thread_local __thread
 #endif
 
 //------------------------------------------------------------
@@ -31,6 +38,12 @@ namespace edu {
 //------------------------------------------------------------
 //--- Fibers
 //------------------------------------------------------------
+
+#ifdef __APPLE__
+      const size_t Min_Stack_Size = 32 * 1024;
+#else
+      const size_t Min_Stack_Size = 4 * 1024;
+#endif
 
         // We pass these signatures as a sanity check.
         const size_t __FIBER_SIGNATURE_PREFIX = 0xdeadbeef;
@@ -57,7 +70,8 @@ namespace edu {
                                 size_t stacklen,
                                 fiber_context_entry_func_t entry_func,
                                 void *user_data) {
-            if(getcontext(ctx) == -1)
+	    int rc = getcontext(ctx);
+	    if(rc != 0)
                 return false;
             ctx->uc_stack.ss_sp = stack;
             ctx->uc_stack.ss_size = stacklen;
@@ -74,7 +88,8 @@ namespace edu {
         // and save the current state in ctx_save.
         bool switch_fiber_context(fiber_context_t *ctx_save,
                                   fiber_context_t *ctx_enter) {
-            return swapcontext(ctx_save, ctx_enter) != -1;
+	    int rc = swapcontext(ctx_save, ctx_enter);
+	    return rc == 0;
         }
 
         // Dispose any resources for a context, if needed.
@@ -85,3 +100,7 @@ namespace edu {
 
     }
 }
+
+#ifdef __APPLE__
+    #pragma clang diagnostic pop
+#endif
