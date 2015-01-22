@@ -169,8 +169,11 @@ void test_ptr() {
 
     __foreach(assert(*tp++ == *tgp++));
 
-    tp = p;
-    tgp = gp;
+    tgp = gp + N - 1;
+    expect_fail(*++tgp);
+
+    tp = p - 1;
+    tgp = gp - 1;
     __foreach(assert(*++tp == *++tgp));
 
     tp = p;

@@ -111,6 +111,7 @@ namespace edu {
 
                 ptr_guard_t &operator+=(int i) {
                     ptr += i;
+                    buf_ptr = ptr; // we don't want a new Buffer to be looked up.
                     return *this;
                 }
 
