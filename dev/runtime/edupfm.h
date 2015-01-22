@@ -12,18 +12,24 @@ namespace edu {
     namespace pfm {
 
 //------------------------------------------------------------
-//--- LINUX
+//--- Threads
 //------------------------------------------------------------
 #ifdef __linux__
+    #define edu_thread_local thread_local // c++11 STANDARD
+#endif
+
+#ifdef __APPLE__
+    #define edu_thread_local __thread // because we can't meet a 2011 standard by 2015... but we're so pretty!
+#endif
 
 //------------------------------------------------------------
-//--- LINUX Atomics
+//--- Atomics
 //------------------------------------------------------------
 
 #define atomicAdd(ptr, val) __sync_fetch_and_add(ptr, val)
 
 //------------------------------------------------------------
-//--- LINUX Fibers
+//--- Fibers
 //------------------------------------------------------------
 
         // We pass these signatures as a sanity check.
@@ -76,7 +82,6 @@ namespace edu {
             //no-op
         }
 
-#endif
 
     }
 }

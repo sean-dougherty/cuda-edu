@@ -39,7 +39,7 @@ namespace edu {
             Invalid_Grid_Dim,
             Invalid_Block_Dim
         };
-        thread_local cudaError_t last_error = cudaSuccess;
+        edu_thread_local cudaError_t last_error = cudaSuccess;
 #define ret_err(err) {last_error = err; return err;}
 
         const char *cudaGetErrorString(cudaError_t err) {

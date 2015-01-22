@@ -1,6 +1,6 @@
 #pragma once
 
-#define EDU_CUDA_SHARED_STORAGE static thread_local
+#define EDU_CUDA_SHARED_STORAGE static edu_thread_local
 
 #include <educuda-api.h>
 #include <eduguard.h>
@@ -8,7 +8,8 @@
 
 #include <assert.h>
 #include <functional>
-#include <omp.h>
+#include <memory>
+#include <thread>
 #include <vector>
 
 
@@ -19,9 +20,9 @@
 namespace edu {
     namespace cuda {
 
-        thread_local uint3 blockIdx;
-        thread_local uint3 threadIdx;
-        thread_local guard::ptr_guard_t<char> dynamic_shared;
+        edu_thread_local uint3 blockIdx;
+        edu_thread_local uint3 threadIdx;
+        edu_thread_local guard::ptr_guard_t<char> dynamic_shared;
 
 #define __edu_cuda_get_dynamic_shared() dynamic_shared
 
@@ -52,7 +53,7 @@ namespace edu {
                 Exit
             } status = Birth;
 
-            static thread_local fiber_t *current;
+            static edu_thread_local fiber_t *current;
 
 #define __syncthreads() edu::cuda::fiber_t::current->sync()
 
@@ -115,7 +116,7 @@ namespace edu {
             }
         };        
 
-        thread_local fiber_t *fiber_t::current = nullptr;
+        edu_thread_local fiber_t *fiber_t::current = nullptr;
 
         struct fibers_block_t {
             unsigned n;
@@ -195,58 +196,88 @@ namespace edu {
                 const size_t nblocks = gridDim.x * gridDim.y * gridDim.z;
                 const size_t ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
 
-#pragma omp parallel for num_threads(EDU_CUDA_FIBERS_OS_THREADS_COUNT)
-                for(size_t iblock = 0; iblock < nblocks; iblock++) {
-                    blockIdx = delinearize(gridDim, iblock);
-                    vector<fiber_t> fibers;
-                    fibers.reserve(ncuda_threads);
+                const size_t blocks_per_thread = nblocks / ncuda_threads;
 
+                vector<unique_ptr<thread>> threads;
+                // I would just use OpenMP here, but Apple.
+                for(unsigned ithread = 0;
+                    ithread < EDU_CUDA_FIBERS_OS_THREADS_COUNT;
+                    ithread++) {
+
+                    size_t iblock_start = ithread * blocks_per_thread;
+                    size_t iblock_end = (ithread == EDU_CUDA_FIBERS_OS_THREADS_COUNT - 1) ? nblocks : iblock_start + nblocks;
+
+                    char *thread_dynamic_shared;
                     if(dynamic_shared_size) {
-                        dynamic_shared = all_dynamic_shared[omp_get_thread_num()];
+                        thread_dynamic_shared = all_dynamic_shared[ithread];
+                    } else {
+                        thread_dynamic_shared = nullptr;
                     }
+
+                    threads.push_back(
+                        unique_ptr<thread>(
+                            new thread([ithread,
+                                        iblock_start,
+                                        iblock_end,
+                                        ncuda_threads,
+                                        thread_dynamic_shared,
+                                        enter_kernel]() {
+
+                                           dynamic_shared = thread_dynamic_shared;
+
+                                           for(size_t iblock = iblock_start; iblock < iblock_end; iblock++) {
+                                               blockIdx = delinearize(cuda::gridDim, iblock);
+                                               vector<fiber_t> fibers;
+                                               fibers.reserve(ncuda_threads);
                             
-                    fibers_block_t fblock{ncuda_threads};
+                                               fibers_block_t fblock{ncuda_threads};
 
-                    for(uint3 tIdx = {0,0,0}; tIdx.x < blockDim.x; tIdx.x++) {
-                        for(tIdx.y = 0; tIdx.y < blockDim.y; tIdx.y++) {
-                            for(tIdx.z = 0; tIdx.z < blockDim.z; tIdx.z++) {
+                                               for(uint3 tIdx = {0,0,0}; tIdx.x < cuda::blockDim.x; tIdx.x++) {
+                                                   for(tIdx.y = 0; tIdx.y < cuda::blockDim.y; tIdx.y++) {
+                                                       for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
 
-                                fibers.emplace_back(tIdx, enter_kernel);
-                                fiber_t &f = fibers.back();
-                                f.spawn();
-                            }
-                        }
-                    }
+                                                           fibers.emplace_back(tIdx, enter_kernel);
+                                                           fiber_t &f = fibers.back();
+                                                           f.spawn();
+                                                       }
+                                                   }
+                                               }
 
-                    do {
-                        fblock.reset();
-                        for(unsigned iwarp_start = 0;
-                            iwarp_start < ncuda_threads;
-                            iwarp_start += EDU_CUDA_WARP_SIZE) {
+                                               do {
+                                                   fblock.reset();
+                                                   for(unsigned iwarp_start = 0;
+                                                       iwarp_start < ncuda_threads;
+                                                       iwarp_start += EDU_CUDA_WARP_SIZE) {
 
-                            bool in_sync_warp;
-                            bool first = true;
-                            do {
-                                in_sync_warp = false;
-                                unsigned iwarp_end = min(ncuda_threads, iwarp_start + EDU_CUDA_WARP_SIZE);
-                                for(unsigned ithread = iwarp_start;
-                                    ithread < iwarp_end;
-                                    ithread++) {
+                                                       bool in_sync_warp;
+                                                       bool first = true;
+                                                       do {
+                                                           in_sync_warp = false;
+                                                           unsigned iwarp_end = min(ncuda_threads, iwarp_start + EDU_CUDA_WARP_SIZE);
+                                                           for(unsigned ithread = iwarp_start;
+                                                               ithread < iwarp_end;
+                                                               ithread++) {
 
-                                    fiber_t &f = fibers[ithread];
-                                    if(first || (f.status == fiber_t::SyncWarp)) {
-                                        f.resume();
-                                        in_sync_warp |= (f.status == fiber_t::SyncWarp);
-                                    }
-                                }
-                                first = false;
-                            } while(in_sync_warp);
-                        }
+                                                               fiber_t &f = fibers[ithread];
+                                                               if(first || (f.status == fiber_t::SyncWarp)) {
+                                                                   f.resume();
+                                                                   in_sync_warp |= (f.status == fiber_t::SyncWarp);
+                                                               }
+                                                           }
+                                                           first = false;
+                                                       } while(in_sync_warp);
+                                                   }
 
-                        for(fiber_t &f: fibers) {
-                            fblock.update(f);
-                        }
-                    } while(!fblock.is_done());
+                                                   for(fiber_t &f: fibers) {
+                                                       fblock.update(f);
+                                                   }
+                                               } while(!fblock.is_done());
+                                           }
+                                       })));
+                }
+
+                for(auto &t: threads) {
+                    t->join();
                 }
 
                 if(dynamic_shared_size) {

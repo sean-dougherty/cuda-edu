@@ -9,7 +9,7 @@ function err() {
 }
 
 printf "Looking for c++ compiler... "
-for x in g++ clang++; do
+for x in clang++ g++; do
     if which $x &>/dev/null; then
         cxx=$x
         break
@@ -19,6 +19,17 @@ if [ -z "$cxx" ]; then
     err "Cannot locate c++ compiler."
 fi
 printf "OK: ${cxx}\n"
+
+case $(uname) in
+    Darwin)
+        cxxflags="-std=c++11 -g -Wall"
+        ldflags="-lrt -lpthread"
+        ;;        
+    *)
+        cxxflags="-std=c++11 -g -Wall"
+        ldflags="-lrt -lpthread"
+        ;;
+esac
 
 function find_file() {
     local description="$1"
@@ -50,6 +61,8 @@ clang_lib=$(dirname ${libclang_so})
 
 printf "generating Makefile.conf..."
 sed -e "s|__configure_cxx__|$cxx|" \
+    -e "s|__configure_cxxflags__|$cxxflags|" \
+    -e "s|__configure_ldflags__|$ldflags|" \
     -e "s|__configure_clang_include__|$clang_include|" \
     -e "s|__configure_clang_lib__|$clang_lib|" \
     Makefile.conf.in > Makefile.conf
