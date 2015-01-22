@@ -20,11 +20,12 @@ or device-shared buffers.
 
 ## System Requirements
 
-The primary requirements are a C++11 compiler and libclang. Currently, only Linux is
-supported. Adding support for Mac should be fairly trivial. A Windows port would require
-a non-trivial effort, but shouldn't be too bad.
+The primary requirements are a C++11 compiler and libclang. Currently, Linux and Mac are
+supported.
 
 For Linux installation instructions, please see [Getting Started on Linux](#getting-started-on-linux).
+
+For Mac installation instructions, please see [Getting Started on Mac](#getting-started-on-mac).
 
 # Getting Started on Linux
 
@@ -36,6 +37,22 @@ for your distro.*
 ```
 sudo apt-get install git g++ libclang-dev
 ```
+
+The remaining steps are in the section [Getting Started on POSIX](#getting-started-on-posix).
+
+# Getting Started on Mac
+
+cuda-edu on Mac requires that the XCode Command Line Tools be installed. I'm no Mac expert,
+but I was able to install them by typing the following in a Terminal:
+```
+xcode-select --install
+```
+
+If that doesn't work for you, a quick google search should tell you what you need to do. The
+remainder of the instructions assume that you've got a Terminal open. Please see
+[Getting Started on POSIX](#getting-started-on-posix).
+
+# Getting Started on POSIX
 
 ## Download the source
 ```
