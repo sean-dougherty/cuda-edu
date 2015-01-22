@@ -158,6 +158,9 @@ void test_ptr() {
     ptr_guard_t<float> gp = (float*)mem::alloc(mem::MemorySpace_Host, N * sizeof(float));
     float *p = new float[100];
 
+    expect_fail(gp[-1] = 0);
+    expect_fail(gp[N] = 0);
+
 #define __foreach(stmt) for(size_t i = 0; i < N; i++) {stmt;}
 #define __cmp() __foreach(assert(p[i] == gp[i]));
 
@@ -166,6 +169,9 @@ void test_ptr() {
 
     float *tp = p;
     ptr_guard_t<float> tgp = gp;
+
+    expect_fail(tgp[N] = 0);
+    expect_fail(tgp[-1] = 0);
 
     __foreach(assert(*tp++ == *tgp++));
 
@@ -188,7 +194,7 @@ void test_ptr() {
     tgp -= 2;
     assert(*tp == *tgp);
 
-    expect_fail(*(gp + N + 1));
+    expect_fail(*(gp + N));
     expect_fail(*(gp - 1));
 
 #undef __foreach
