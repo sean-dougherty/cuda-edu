@@ -47,6 +47,23 @@ namespace edu {
             return f.is_open();
         }
 
+        unsigned parse_uint(const string &str,
+                            const string &description,
+                            unsigned minval = 0,
+                            unsigned maxval = ~0u) {
+            typedef long long llong;
+
+            try {
+                llong val = stoll(str);
+                if(val >= llong(minval) && val <= llong(maxval)) {
+                    return unsigned(val);
+                }
+            } catch(...) {
+            }
+
+            edu_err("Invalid value for " << description << ". Expected integer in [" << minval << ", " << maxval << "].");
+        }
+
         bool ends_with(const string &str, const string &ending) {
             if(str.length() >= ending.length()) {
                 return (0 == str.compare(str.length() - ending.length(),

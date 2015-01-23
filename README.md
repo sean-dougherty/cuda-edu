@@ -153,7 +153,7 @@ make
 
 Next, let's try running against all the datasets:
 ```
-./run
+./run all
 ```
 *Note: you don't need to explicitly call 'make'. 'run' will do it for you.*
 This should produce output like the following:
@@ -204,6 +204,12 @@ ERROR! ../../dev/include/eduwb.h:304: Results mismatch at index 0. Expected 103.
 The *run* script can be told to launch your program with gdb:
 ```
 ./run -g 0
+```
+
+When debugging, you may wish to have only a single OS thread executing your
+kernel. To do this, use the -s flag:
+```
+./run -gs 0
 ```
 
 ## Executing without the run script

@@ -13,10 +13,6 @@
 #include <vector>
 
 
-#if !defined(EDU_CUDA_FIBERS_OS_THREADS_COUNT)
-    #define EDU_CUDA_FIBERS_OS_THREADS_COUNT 4
-#endif
-
 #define __edu_cuda_invoke_kernel(driver, x...) driver.invoke_kernel([=]{x;})
 
 namespace edu {
@@ -179,9 +175,11 @@ namespace edu {
                 mem::set_space(mem::MemorySpace_Device);
                 guard::set_write_callback([](){fiber_t::current->sync_warp();});
 
-                char *all_dynamic_shared[EDU_CUDA_FIBERS_OS_THREADS_COUNT];
+                const unsigned nos_threads = pfm::get_thread_count();
+
+                char *all_dynamic_shared[nos_threads];
                 if(dynamic_shared_size) {
-                    for(int i = 0; i < EDU_CUDA_FIBERS_OS_THREADS_COUNT; i++) {
+                    for(int i = 0; i < nos_threads; i++) {
                         all_dynamic_shared[i] = (char *)mem::alloc(mem::MemorySpace_Device, dynamic_shared_size);
                         edu_errif(!all_dynamic_shared[i]);
                     }
@@ -192,17 +190,16 @@ namespace edu {
                 
                 const unsigned nblocks = gridDim.x * gridDim.y * gridDim.z;
                 const unsigned ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
-
                 const unsigned blocks_per_thread = nblocks / ncuda_threads;
 
                 vector<unique_ptr<thread>> threads;
                 // I would just use OpenMP here, but Apple.
                 for(unsigned ithread = 0;
-                    ithread < EDU_CUDA_FIBERS_OS_THREADS_COUNT;
+                    ithread < nos_threads;
                     ithread++) {
 
                     unsigned iblock_start = ithread * blocks_per_thread;
-                    unsigned iblock_end = (ithread == EDU_CUDA_FIBERS_OS_THREADS_COUNT - 1) ? nblocks : iblock_start + nblocks;
+                    unsigned iblock_end = (ithread == nos_threads - 1) ? nblocks : iblock_start + nblocks;
 
                     char *thread_dynamic_shared;
                     if(dynamic_shared_size) {
@@ -278,7 +275,7 @@ namespace edu {
                 }
 
                 if(dynamic_shared_size) {
-                    for(int i = 0; i < EDU_CUDA_FIBERS_OS_THREADS_COUNT; i++) {
+                    for(int i = 0; i < nos_threads; i++) {
                         mem::dealloc(mem::MemorySpace_Device, all_dynamic_shared[i]);
                     }
                 }
