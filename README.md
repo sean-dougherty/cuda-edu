@@ -68,25 +68,31 @@ make
 
 The output from this should look similar to the following:
 ```
-[laptop /tmp]$ cd cuda-edu
-[laptop /tmp/cuda-edu]$ ./configure
-Looking for c++ compiler... OK: /usr/bin/clang++
-Searching for */clang-c/Index.h... OK: /usr/lib/llvm-3.4/include
-Searching for */libclang.so... OK: /usr/lib/llvm-3.4/lib
-generating Makefile.conf...
-[laptop /tmp/cuda-edu]$ make
+[laptop ~/cta]$ cd cuda-edu
+[laptop ~/cta/cuda-edu]$ ./configure
+Looking for c++ compiler...OK: clang++
+Searching for libclang headers... OK: /usr/lib/llvm-3.4/include/clang-c/Index.h
+Searching for libclang library... OK: /usr/lib/llvm-3.4/lib/libclang.so.1
+generating Makefile.conf...OK
+===
+=== Configure completed successfully
+===
+[laptop ~/cta/cuda-edu]$ make
 make -C dev/educc/ast
-make[1]: Entering directory `/tmp/cuda-edu/dev/educc/ast'
-/usr/bin/clang++ main.cpp -o main "-DAST_INCLUDE=\"-I/tmp/cuda-edu\"" -O2 -I/usr/lib/llvm-3.4/include -L/usr/lib/llvm-3.4/lib -lclang -std=c++11 -g -Wall -lrt
+make[1]: Entering directory `/home/dougher1/cta/cuda-edu/dev/educc/ast'
+clang++ main.cpp -o main -O2 -I/usr/lib/llvm-3.4/include /usr/lib/llvm-3.4/lib/libclang.so.1 -std=c++11 -g -Wall -lrt -lpthread
 mkdir -p ../../bin
 cp main ../../bin/educc-ast
-make[1]: Leaving directory `/tmp/cuda-edu/dev/educc/ast'
+make[1]: Leaving directory `/home/dougher1/cta/cuda-edu/dev/educc/ast'
 make -C dev/educc/cu2cpp
-make[1]: Entering directory `/tmp/cuda-edu/dev/educc/cu2cpp'
-/usr/bin/clang++ main.cpp -o main -O2 -std=c++11 -g -Wall -lrt
+make[1]: Entering directory `/home/dougher1/cta/cuda-edu/dev/educc/cu2cpp'
+clang++ main.cpp -o main -O2 -std=c++11 -g -Wall -lrt -lpthread
 mkdir -p ../../bin
 cp main ../../bin/educc-cu2cpp
-make[1]: Leaving directory `/tmp/cuda-edu/dev/educc/cu2cpp'
+make[1]: Leaving directory `/home/dougher1/cta/cuda-edu/dev/educc/cu2cpp'
+===
+=== Build completed successfully
+===
 ```
 
 ### configure workaround
@@ -102,17 +108,14 @@ system. Once you've done that, try executing *make* again.
 
 Now verify your installation is correct:
 ```
-cd dev/tests
-./run
+make tests
 ```
 
 After this script runs, you should see a message like the following at the end:
 ```
-Unit tests passed.
-```
-Now leave the unit tests directory:
-```
-cd ../..
+===
+=== Unit tests passed
+===
 ```
 
 ## Run MP0 (Device Query)

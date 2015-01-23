@@ -15,4 +15,6 @@ for x in */Makefile; do
     cd ..
 done
     
-echo "Unit tests passed."
+echo "==="
+echo "=== Unit tests passed"
+echo "==="

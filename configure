@@ -45,3 +45,7 @@ sed -e "s|__configure_cxx__|$cxx|" \
     -e "s|__configure_clang_lib__|$clang_lib|" \
     dev/etc/Makefile.conf.in > Makefile.conf
 printf "OK\n"
+
+echo "==="
+echo "=== Configure completed successfully"
+echo "==="
