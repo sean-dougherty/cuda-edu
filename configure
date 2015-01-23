@@ -2,74 +2,37 @@
 
 set -e
 
-function err() {
-    echo
-    echo "$@" 1>&2
-    exit 1
-}
+# Contains find_program() and find_file()
+source dev/etc/configure-util.sh
 
-function find_file() {
-    local description="$1"
-    local sane_location="$2"
-    local find_root="$3"
-    local find_path="$4"
-    local result=""
-
-    printf "Searching for ${description}... " > /dev/tty
-    if [ -f "${sane_location}" ]; then
-        result="${sane_location}"
-    else
-        result=$(find "${find_root}" -path "${find_path}" | tail -1)
-    fi
-
-    if [ -z "${result}" ]; then
-        err "Cannot locate ${find_path}"
-    fi
-    printf "OK: ${result}\n" > /dev/tty
-    
-    echo "${result}"
-}
-
-printf "Looking for c++ compiler... "
-for x in clang++ g++; do
-    if which $x &>/dev/null; then
-        cxx=$x
-        break
-    fi
-done
-if [ -z "$cxx" ]; then
-    err "Cannot locate c++ compiler."
-fi
-printf "OK: ${cxx}\n"
+cxx=$(find_program "c++ compiler" "clang++ g++")
 
 case $(uname) in
     Darwin)
         cxxflags="-std=c++11 -g -Wall"
         ldflags="-lpthread"
-	if ! [ -e dev/ext/include/clang-c ]; then
-	    (
-		echo "Downloading clang headers..."
-		set -e
-		mkdir -p dev/ext/include
-		cd dev/ext/include
-		svn export http://llvm.org/svn/llvm-project/cfe/trunk/include/clang-c/
-		echo "Downloading clang headers...OK"
-	    )
-	else
-	    echo "Found clang headers."
-	fi
-	clang_include=-I"$PWD/dev/ext/include"
-	clang_lib_dir="`xcode-select --print-path`/Toolchains/XcodeDefault.xctoolchain/usr/lib"
-	clang_lib="-rpath ${clang_lib_dir} -L${clang_lib_dir} -lclang"
+        if ! [ -e dev/ext/include/clang-c ]; then
+            (
+                echo "Downloading clang headers..."
+                set -e
+                mkdir -p dev/ext/include
+                cd dev/ext/include
+                svn export http://llvm.org/svn/llvm-project/cfe/trunk/include/clang-c/
+                echo "Downloading clang headers...OK"
+            )
+        else
+            echo "Found clang headers."
+        fi
+        clang_include="-I$PWD/dev/ext/include"
+        clang_lib_dir="`xcode-select --print-path`/Toolchains/XcodeDefault.xctoolchain/usr/lib"
+        clang_lib="-rpath ${clang_lib_dir} -L${clang_lib_dir} -lclang"
         ;;        
     *)
         cxxflags="-std=c++11 -g -Wall"
         ldflags="-lrt -lpthread"
-	clang_index_h=$(find_file "libclang headers" "/usr/include/clang-c/Index.h" "/usr" "*/clang-c/Index.h")
-	clang_include=-I$(dirname $(dirname ${clang_index_h}))
-
-	libclang_so=$(find_file "libclang library" "/usr/lib/libclang.so" "/usr" "*/libclang.so")
-	clang_lib="-L$(dirname ${libclang_so}) -lclang"
+        clang_index_h=$(find_file "libclang headers" "clang-c/Index.h" "/usr/include" "/usr")
+        clang_include="-I$(dirname $(dirname ${clang_index_h}))"
+        clang_lib=$(find_file "libclang library" "libclang.so" "/usr/lib" "/usr")
         ;;
 esac
 
@@ -80,5 +43,5 @@ sed -e "s|__configure_cxx__|$cxx|" \
     -e "s|__configure_ldflags__|$ldflags|" \
     -e "s|__configure_clang_include__|$clang_include|" \
     -e "s|__configure_clang_lib__|$clang_lib|" \
-    Makefile.conf.in > Makefile.conf
+    dev/etc/Makefile.conf.in > Makefile.conf
 printf "OK\n"

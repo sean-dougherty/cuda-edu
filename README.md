@@ -92,7 +92,7 @@ make[1]: Leaving directory `/tmp/cuda-edu/dev/educc/cu2cpp'
 ### configure workaround
 If the configure step fails, then you can manually configure. Create a *Makefile.conf*:
 ```
-cp Makefile.conf.in Makefile.conf
+cp dev/etc/Makefile.conf.in Makefile.conf
 ```
 Now edit the portion of Makefile.conf within the "INPUT PARAMETERS" block for your
 system by replacing the *\_\_configure...\_\_* text with the appropriate values for your
