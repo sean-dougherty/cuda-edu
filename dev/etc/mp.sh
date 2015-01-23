@@ -31,7 +31,11 @@ CMD=./mp
 while getopts "gsh" opt; do
     case $opt in
         g)
-            CMD="gdb --args ./mp"
+            if [ $(uname) == "Darwin" ]; then
+                CMD="lldb ./mp"
+            else
+                CMD="gdb --args ./mp"
+            fi
             ;;
         s)
             export EDU_CUDA_THREAD_COUNT=1
