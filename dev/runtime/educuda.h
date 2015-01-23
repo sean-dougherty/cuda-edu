@@ -17,6 +17,8 @@
     #define EDU_CUDA_FIBERS_OS_THREADS_COUNT 4
 #endif
 
+#define __edu_cuda_invoke_kernel(driver, x...) driver.invoke_kernel([=]{x;})
+
 namespace edu {
     namespace cuda {
 
@@ -160,24 +162,19 @@ namespace edu {
             dim3 blockDim;
             unsigned int dynamic_shared_size;
 
-        driver_t(dim3 gridDim_,
-                 dim3 blockDim_,
-                 unsigned int dynamic_shared_size_ = 0)
-        : gridDim(gridDim_)
-        , blockDim(blockDim_)
-                , dynamic_shared_size(dynamic_shared_size_){
-        }
+            driver_t(dim3 gridDim_,
+                     dim3 blockDim_,
+                     unsigned int dynamic_shared_size_ = 0)
+            : gridDim(gridDim_)
+            , blockDim(blockDim_)
+            , dynamic_shared_size(dynamic_shared_size_){
+            }
 
-            template<typename... T>
-            void invoke_kernel(void (*kernel)(T... args), T... args) {
+            void invoke_kernel(function<void ()> enter_kernel) {
 
                 if(cudaSuccess != check_kernel_config(gridDim, blockDim)) {
                     return;
                 }
-
-                auto enter_kernel = [=]() {
-                    kernel(args...);
-                };
 
                 mem::set_space(mem::MemorySpace_Device);
                 guard::set_write_callback([](){fiber_t::current->sync_warp();});

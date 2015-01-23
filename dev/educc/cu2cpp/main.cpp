@@ -100,7 +100,6 @@ vector<kernel_call_location> find_kernel_calls(const string &src) {
         if(loc.end >= src.length()) {
             break;
         }
-        loc.end++;
 
         result.push_back(loc);
         pos = loc.end;
@@ -143,13 +142,12 @@ void transform_kernel_call(ostream &out,
     out.write(csrc + dims_start, dims_end - dims_start);
     out << "); ";
     out.write(csrc + name_end, angle_start - name_end);
-    out << "driver.invoke_kernel";
+    out << "__edu_cuda_invoke_kernel(driver, ";
     out.write(csrc + angle_end, lparen - angle_end);
-    out << '(';
     out.write(csrc + loc.start, name_end - loc.start);
-    out << ", ";
+    out << "(";
     out.write(csrc + args_start, loc.end - args_start);
-    out << '}';
+    out << ");}";
 }
 
 //------------------------------------------------------------

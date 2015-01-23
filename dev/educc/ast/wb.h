@@ -88,5 +88,5 @@ cudaError_t cudaThreadSynchronize(...);
 struct driver_t {
     driver_t(dim3, dim3);
     driver_t(dim3, dim3, unsigned int);
-    void invoke_kernel(...);
 };
+#define __edu_cuda_invoke_kernel(driver, x...) x
