@@ -43,7 +43,7 @@ namespace edu {
             function<void()> enter_kernel;
             pfm::fiber_context_t ctx;
             pfm::fiber_context_t ctx_main;
-	    char stack[pfm::Min_Stack_Size];
+            char stack[pfm::Min_Stack_Size];
             enum status_t {
                 Birth,
                 Spawn,
@@ -103,12 +103,12 @@ namespace edu {
                                         this);
             }
 
-            fiber_t(uint3 idx_,
-                    function<void()> enter_kernel_)
-            : idx(idx_)
-            , enter_kernel(enter_kernel_)
+        fiber_t(uint3 idx_,
+                function<void()> enter_kernel_)
+        : idx(idx_)
+        , enter_kernel(enter_kernel_)
                 , status(Birth) {
-            }
+        }
 
             ~fiber_t() {
                 pfm::dispose_fiber_context(ctx);
@@ -123,10 +123,10 @@ namespace edu {
             unsigned nsync;
             unsigned nexit;
 
-            fibers_block_t(unsigned n_)
-            : n(n_) {
-                reset();
-            }
+        fibers_block_t(unsigned n_)
+        : n(n_) {
+            reset();
+        }
 
             void reset() {
                 nsync = nexit = 0;
@@ -160,13 +160,13 @@ namespace edu {
             dim3 blockDim;
             unsigned int dynamic_shared_size;
 
-            driver_t(dim3 gridDim_,
-                     dim3 blockDim_,
-                     unsigned int dynamic_shared_size_ = 0)
-            : gridDim(gridDim_)
-            , blockDim(blockDim_)
-            , dynamic_shared_size(dynamic_shared_size_){
-            }
+        driver_t(dim3 gridDim_,
+                 dim3 blockDim_,
+                 unsigned int dynamic_shared_size_ = 0)
+        : gridDim(gridDim_)
+        , blockDim(blockDim_)
+                , dynamic_shared_size(dynamic_shared_size_){
+        }
 
             template<typename... T>
             void invoke_kernel(void (*kernel)(T... args), T... args) {
