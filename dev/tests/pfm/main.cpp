@@ -11,41 +11,6 @@ using namespace edu::pfm;
 
 #define expect_fail(stmt) try {stmt; cerr << __FILE__ << ":" << __LINE__ << ": Expected failure" << endl; abort();} catch(...){}
 
-void test_fiber() {
-    struct fiber_t {
-        int state = 0;
-        fiber_context_t ctx_main, ctx_fiber;
-
-        static void entry(void *user_data) {
-            fiber_t *fiber = (fiber_t *)user_data;
-
-            assert(0 == fiber->state);
-            fiber->state++;
-            assert(1 == fiber->state);
-            assert(switch_fiber_context(&fiber->ctx_fiber, &fiber->ctx_main));
-            assert(2 == fiber->state);
-            fiber->state++;
-        }
-    } fiber;
-    char stack[pfm::Min_Stack_Size];
-
-    assert(init_fiber_context(&fiber.ctx_fiber,
-                              &fiber.ctx_main,
-                              stack,
-                              sizeof(stack),
-                              fiber_t::entry,
-                              &fiber));
-    assert(0 == fiber.state);
-    assert(switch_fiber_context(&fiber.ctx_main, &fiber.ctx_fiber));
-    assert(1 == fiber.state);
-    fiber.state++;
-    assert(switch_fiber_context(&fiber.ctx_main, &fiber.ctx_fiber));
-    assert(3 == fiber.state);
-
-    dispose_fiber_context(fiber.ctx_main);
-    dispose_fiber_context(fiber.ctx_fiber);
-}
-
 void test_atomic() {
     int accum = 100;
 
@@ -102,7 +67,6 @@ void test_atomic() {
 }
 
 int main(int argc, const char **argv) {
-    test_fiber();
     test_atomic();
 
     cout << "--- Passed pfm tests ---" << endl;

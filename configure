@@ -9,7 +9,7 @@ cxx=$(find_program "c++ compiler" "clang++ g++")
 
 case $(uname) in
     Darwin)
-        cxxflags="-std=c++11 -g -Wall"
+        cxxflags="-std=c++11 -g -Wall -D_XOPEN_SOURCE"
         ldflags="-lpthread"
         if ! [ -e dev/ext/include/clang-c ]; then
             (
