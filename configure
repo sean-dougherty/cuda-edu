@@ -5,10 +5,9 @@ set -e
 # Contains find_program() and find_file()
 source dev/etc/configure-util.sh
 
-cxx=$(find_program "c++ compiler" "clang++ g++")
-
 case $(uname) in
     Darwin)
+	cxx=$(find_program "c++ compiler" "clang++ g++")
         cxxflags="-std=c++11 -g -Wall -D_XOPEN_SOURCE"
         ldflags="-lpthread"
         if ! [ -e dev/ext/include/clang-c ]; then
@@ -28,6 +27,7 @@ case $(uname) in
         clang_lib="-rpath ${clang_lib_dir} -L${clang_lib_dir} -lclang"
         ;;        
     *)
+	cxx=$(find_program "c++ compiler" "g++ clang++")
         cxxflags="-std=c++11 -g -Wall"
         ldflags="-lrt -lpthread"
         clang_index_h=$(find_file "libclang headers" "clang-c/Index.h" "/usr/include" "/usr")

@@ -25,7 +25,7 @@ namespace edu {
 
 #define __edu_cuda_get_dynamic_shared() dynamic_shared
 
-        uint linearize(const dim3 &dim, uint3 idx) {
+        uint linearize(const dim3 &dim, const uint3 &idx) {
             return (dim.x*dim.y)*idx.z + idx.y*dim.x + idx.x;
         }
 
@@ -139,6 +139,11 @@ namespace edu {
             }
         };
 
+        //------------------------------------------------------------
+        //---
+        //--- STRUCT driver_t
+        //---
+        //------------------------------------------------------------
         struct driver_t {
             dim3 gridDim;
             dim3 blockDim;
@@ -158,116 +163,106 @@ namespace edu {
                     return;
                 }
 
+                cuda::gridDim = gridDim;
+                cuda::blockDim = blockDim;
+
                 mem::set_space(mem::MemorySpace_Device);
                 guard::set_write_callback([](){cuda_thread_t::current->sync_warp();});
 
-                const unsigned nos_threads = pfm::get_thread_count();
-
-                char *all_dynamic_shared[nos_threads];
-                if(dynamic_shared_size) {
-                    for(int i = 0; i < nos_threads; i++) {
-                        all_dynamic_shared[i] = (char *)mem::alloc(mem::MemorySpace_Device,
-                                                                   dynamic_shared_size);
-                        edu_errif(!all_dynamic_shared[i]);
-                    }
-                }
-                
-                cuda::gridDim = gridDim;
-                cuda::blockDim = blockDim;
-                
+                const unsigned nos_threads = pfm::get_thread_count();                
                 const unsigned nblocks = gridDim.x * gridDim.y * gridDim.z;
                 const unsigned ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
-                const unsigned blocks_per_thread = nblocks / ncuda_threads;
+                const unsigned blocks_per_osthread = nblocks / nos_threads;
 
                 vector<unique_ptr<thread>> threads;
                 // I would just use OpenMP here, but not supported by clang yet.
-                for(unsigned ithread = 0;
-                    ithread < nos_threads;
-                    ithread++) {
+                for(unsigned ithread = 0; ithread < nos_threads; ithread++) {
 
-                    unsigned iblock_start = ithread * blocks_per_thread;
+                    unsigned iblock_start = ithread * blocks_per_osthread;
                     unsigned iblock_end = (ithread == nos_threads - 1) ? nblocks : iblock_start + nblocks;
 
-                    char *thread_dynamic_shared;
-                    if(dynamic_shared_size) {
-                        thread_dynamic_shared = all_dynamic_shared[ithread];
-                    } else {
-                        thread_dynamic_shared = nullptr;
-                    }
+                    auto osthread_task = [=]() {
+                        execute_blocks(iblock_start,
+                                       iblock_end,
+                                       ncuda_threads,
+                                       enter_kernel);
+                    };
 
-                    threads.push_back(
-                        unique_ptr<thread>(
-                            new thread([ithread,
-                                        iblock_start,
-                                        iblock_end,
-                                        ncuda_threads,
-                                        thread_dynamic_shared,
-                                        enter_kernel]() {
-
-                                           dynamic_shared = thread_dynamic_shared;
-
-                                           for(size_t iblock = iblock_start; iblock < iblock_end; iblock++) {
-                                               microblanket::blanket_t<cuda_thread_t> cuda_threads{ncuda_threads};
-                                               blockIdx = delinearize(cuda::gridDim, iblock);
-                                               block_state_t block_state{ncuda_threads};
-
-                                               for(uint3 tIdx = {0,0,0}; tIdx.x < cuda::blockDim.x; tIdx.x++) {
-                                                   for(tIdx.y = 0; tIdx.y < cuda::blockDim.y; tIdx.y++) {
-                                                       for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
-                                                           cuda_threads.spawn(
-                                                               [tIdx, enter_kernel]
-                                                               (cuda_thread_t *cuda_thread) {
-                                                                   cuda_thread->run(tIdx, enter_kernel);
-                                                               });
-                                                       }
-                                                   }
-                                               }
-
-                                               do {
-                                                   block_state.reset();
-                                                   for(unsigned iwarp_start = 0;
-                                                       iwarp_start < ncuda_threads;
-                                                       iwarp_start += EDU_CUDA_WARP_SIZE) {
-
-                                                       bool in_sync_warp;
-                                                       bool first = true;
-                                                       do {
-                                                           in_sync_warp = false;
-                                                           unsigned iwarp_end = min(ncuda_threads, iwarp_start + EDU_CUDA_WARP_SIZE);
-                                                           for(unsigned ithread = iwarp_start;
-                                                               ithread < iwarp_end;
-                                                               ithread++) {
-
-                                                               cuda_thread_t &t = cuda_threads[ithread];
-                                                               if(first || (t.status == cuda_thread_t::SyncWarp)) {
-                                                                   t.resume();
-                                                                   in_sync_warp |= (t.status == cuda_thread_t::SyncWarp);
-                                                               }
-                                                           }
-                                                           first = false;
-                                                       } while(in_sync_warp);
-                                                   }
-
-                                                   for(auto &t: cuda_threads) {
-                                                       block_state.update(t);
-                                                   }
-                                               } while(!block_state.is_done());
-                                           }
-                                       })));
+                    threads.push_back(unique_ptr<thread>(new thread(osthread_task)));
                 }
 
                 for(auto &t: threads) {
                     t->join();
                 }
 
-                if(dynamic_shared_size) {
-                    for(int i = 0; i < nos_threads; i++) {
-                        mem::dealloc(mem::MemorySpace_Device, all_dynamic_shared[i]);
-                    }
-                }
-
                 mem::set_space(mem::MemorySpace_Host);
                 guard::clear_write_callback();
+            }
+
+            void execute_blocks(unsigned iblock_start,
+                                unsigned iblock_end,
+                                unsigned ncuda_threads,
+                                function<void()> enter_kernel) {
+
+                if(dynamic_shared_size) {
+                    dynamic_shared = (char *)mem::alloc(mem::MemorySpace_Device,
+                                                        dynamic_shared_size);
+                }
+                microblanket::blanket_t<cuda_thread_t> cuda_threads{ncuda_threads};
+
+                for(size_t iblock = iblock_start; iblock < iblock_end; iblock++) {
+                    blockIdx = delinearize(cuda::gridDim, iblock);
+                    block_state_t block_state{ncuda_threads};
+
+                    cuda_threads.clear();
+
+                    for(uint3 tIdx = {0,0,0}; tIdx.x < cuda::blockDim.x; tIdx.x++) {
+                        for(tIdx.y = 0; tIdx.y < cuda::blockDim.y; tIdx.y++) {
+                            for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
+                                cuda_threads.spawn(
+                                    [tIdx, enter_kernel]
+                                    (cuda_thread_t *cuda_thread) {
+                                        cuda_thread->run(tIdx, enter_kernel);
+                                    });
+                            }
+                        }
+                    }
+
+                    do {
+                        block_state.reset();
+                        for(unsigned iwarp_start = 0;
+                            iwarp_start < ncuda_threads;
+                            iwarp_start += EDU_CUDA_WARP_SIZE) {
+
+                            bool in_sync_warp;
+                            bool first = true;
+                            do {
+                                in_sync_warp = false;
+                                unsigned iwarp_end = min(ncuda_threads, iwarp_start + EDU_CUDA_WARP_SIZE);
+                                for(unsigned ithread = iwarp_start;
+                                    ithread < iwarp_end;
+                                    ithread++) {
+
+                                    cuda_thread_t &t = cuda_threads[ithread];
+                                    if(first || (t.status == cuda_thread_t::SyncWarp)) {
+                                        t.resume();
+                                        in_sync_warp |= (t.status == cuda_thread_t::SyncWarp);
+                                    }
+                                }
+                                first = false;
+                            } while(in_sync_warp);
+                        }
+
+                        for(auto &t: cuda_threads) {
+                            block_state.update(t);
+                        }
+                    } while(!block_state.is_done());
+                }
+
+                if(dynamic_shared_size) {
+                    mem::dealloc(mem::MemorySpace_Device, dynamic_shared);
+                    dynamic_shared = nullptr;
+                }
             }
         };
 

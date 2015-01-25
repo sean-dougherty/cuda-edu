@@ -58,18 +58,25 @@ namespace edu {
                     buf_ptr = nullptr;
                 }
 
-                ptr_guard_t(T *ptr) : ptr_guard_t((element_guard_t*)ptr) {
-                }
-                ptr_guard_t(element_guard_t *ptr_) : ptr(ptr_) {
+                ptr_guard_t(T *ptr_) : ptr((element_guard_t*)ptr_) {
                     if(!mem::find_buf(ptr, &buf)) {
                         buf = Buffer::get_universe();
                     }
                     buf_ptr = ptr;
                 }
-                ptr_guard_t(T *ptr_, Buffer buf_) : ptr_guard_t((element_guard_t *)ptr_, buf_) {
+
+                ptr_guard_t(T *ptr_, Buffer buf_)
+                    : ptr_guard_t((element_guard_t *)ptr_, buf_) {
                 }
-                ptr_guard_t(element_guard_t *ptr_, Buffer buf_) : ptr(ptr_), buf(buf_), buf_ptr(ptr_) {
+                ptr_guard_t(element_guard_t *ptr_, Buffer buf_)
+                    : ptr(ptr_), buf(buf_), buf_ptr(ptr_) {
                 }
+
+                ptr_guard_t &operator=(T *ptr_) {
+                    this->~ptr_guard_t();
+                    return *(new (this) ptr_guard_t(ptr_));
+                }
+                
 
                 void check_offset(int i) {
                     if(ptr != buf_ptr) { // must have been changed by cudaMalloc()

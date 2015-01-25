@@ -1,13 +1,17 @@
 #include <cstdlib>
 #include <functional>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-// {get,set,make}context() are deprecated because the argument passing
-// mechanism violates standards. However, we don't pass any arguments.
+#ifdef __clang__
+    // {get,set,make}context() are deprecated because the argument passing
+    // mechanism violates standards. However, we don't pass any arguments.
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 #include <setjmp.h>
 #include <ucontext.h>
-#pragma clang diagnostic push
+#ifdef __clang__
+    #pragma clang diagnostic push
+#endif
 
 namespace microblanket {
     typedef int fiber_yield_t;
