@@ -211,12 +211,10 @@ namespace edu {
                                                blockIdx = delinearize(cuda::gridDim, iblock);
                                                block_state_t block_state{ncuda_threads};
 
-                                               unsigned ifiber = 0;
                                                for(uint3 tIdx = {0,0,0}; tIdx.x < cuda::blockDim.x; tIdx.x++) {
                                                    for(tIdx.y = 0; tIdx.y < cuda::blockDim.y; tIdx.y++) {
                                                        for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
-                                                           cuda_threads.init_fiber(
-                                                               ifiber++,
+                                                           cuda_threads.spawn(
                                                                [tIdx, enter_kernel]
                                                                (cuda_thread_t *cuda_thread) {
                                                                    cuda_thread->run(tIdx, enter_kernel);

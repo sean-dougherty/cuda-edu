@@ -39,7 +39,7 @@ int main(int argc, const char **argv) {
     auto run = [](MyFiber *f){f->run();};
 
     for(unsigned i = 0; i < nfibers; i++) {
-        blanket.init_fiber(i, run);
+        blanket.spawn(run);
     }
 
     for(unsigned i = 0; i < nfibers; i++) {

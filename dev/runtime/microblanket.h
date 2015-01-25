@@ -40,6 +40,11 @@ namespace microblanket {
             fiber_run_t *run_func() {return (fiber_run_t*)(fiber() + 1);}
         };
 
+        void *buf;
+        fiber_container_t *containers;
+        unsigned capacity;
+        unsigned nspawned;
+
         // Unless Fiber is gigantic, stack must be power of 2 >= 4096.
         static_assert( sizeof(stack_buf_t) > (sizeof(Fiber)+sizeof(fiber_run_t)+2048),
                        "stack too small" );
@@ -50,69 +55,75 @@ namespace microblanket {
         blanket_t(blanket_t &&other) {
             buf = other.buf;
             containers = other.containers;
-            nfibers = other.nfibers;
+            capacity = other.capacity;
 
             other.buf = nullptr;
             other.containers = nullptr;
-            other.nfibers = 0;
+            other.capacity = 0;
         }
 
         // Allocates fibers and their stacks. Fibers
         // not yet constructed.
-        blanket_t(unsigned nfibers_) : nfibers(nfibers_) {
+        blanket_t(unsigned capacity_)
+            : capacity(capacity_)
+            , nspawned(0) {
             // Custom align malloc logic so no worries about platform stuff.
             {
                 const size_t sizeof_cont = sizeof(fiber_container_t);
 
                 // Allocate enough for n+1 buffers.
-                buf = malloc((nfibers+1) * sizeof_cont);
+                buf = malloc((capacity+1) * sizeof_cont);
 
                 // Point to first container boundary.
                 size_t cont_addr = (size_t(buf) + sizeof_cont) & ~(sizeof_cont-1);
                 containers = (fiber_container_t*)cont_addr;
             }
-
-            construct_fibers();
         }
 
     private:
-        void construct_fibers() {
-            // Invoke default constructor for fiber datastructures and run functions.
-            for(unsigned i = 0; i < nfibers; i++) {
-                fiber_container_t *fc = containers + i;
-                Fiber *f = fc->fiber();
-                new (f) Fiber();
-                f->fid = i;
-                fiber_run_t *run_func = fc->run_func();
-                new (run_func) fiber_run_t();
-            }
+        void construct_fiber(unsigned i) {
+            fiber_container_t *fc = containers + i;
+            Fiber *f = fc->fiber();
+            new (f) Fiber();
+            f->fid = i;
+            fiber_run_t *run_func = fc->run_func();
+            new (run_func) fiber_run_t();
         }
 
-        void destruct_fibers() {
-            for(unsigned i = 0; i < nfibers; i++) {
-                fiber_container_t *fc = containers + i;
-                fc->fiber()->~Fiber();
-                fc->run_func()->~fiber_run_t();
-            }
-        }            
+        void destruct_fiber(unsigned i) {
+            fiber_container_t *fc = containers + i;
+            fc->fiber()->~Fiber();
+            fc->run_func()->~fiber_run_t();
+        }
 
     public:
         // Destructs all the fibers.
         ~blanket_t() {
             // buf is null if we were moved.
             if(buf) {
-                destruct_fibers();
+                clear();
                 free(buf);
                 buf = nullptr;
                 containers = nullptr;
             }
         }
 
+        void clear() {
+            for(unsigned i = 0; i < nspawned; i++) {
+                destruct_fiber(i);
+            }
+            nspawned = 0;
+        }
+
         // Creates fiber context, switches to it, executes run, and returns once
         // fiber yields or exits.
-        fiber_yield_t init_fiber(unsigned i, fiber_run_t run) {
-            fiber_container_t *fc = containers + i;
+        fiber_yield_t spawn(fiber_run_t run) {
+            assert(nspawned < capacity);
 
+            unsigned i = nspawned++;
+
+            construct_fiber(i);
+            fiber_container_t *fc = containers + i;
             *fc->run_func() = run;
 
             return create_fiber_context(fc);
@@ -121,12 +132,6 @@ namespace microblanket {
         // Get the fiber at index i.
         Fiber *get_fiber(unsigned i) {
             return containers[i].fiber();
-        }
-
-        // Destruct fibers, construct them again.
-        void reset() {
-            destruct_fibers();
-            construct_fibers();
         }
 
         // Returns the currently executing fiber. If no fiber is executing, will return garbage.
@@ -181,10 +186,6 @@ namespace microblanket {
         }
 
         blanket_t(const blanket_t &);
-
-        void *buf;
-        fiber_container_t *containers;
-        unsigned nfibers;
     };
 
     //------------------------------------------------------------
