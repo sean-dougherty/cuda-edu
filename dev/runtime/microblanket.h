@@ -28,7 +28,7 @@ namespace microblanket {
     class blanket_t {
     public:
         typedef std::function<void(Fiber *)> fiber_run_t;
-
+          
     private:
         typedef typename Fiber::stack_buf_t stack_buf_t;
         // Contains stack buffer, fiber, and fiber run function. Assumes that stacks grow
@@ -51,6 +51,30 @@ namespace microblanket {
         static_assert( is_power_of_2(sizeof(stack_buf_t)),
                        "stack size must be power of 2." );
     public:
+        struct iterator : public std::iterator<std::input_iterator_tag, Fiber> {
+        private:
+            fiber_container_t *ptr;
+        public:
+            iterator(fiber_container_t *ptr_) : ptr(ptr_) {
+            }
+            bool operator!=(const iterator &other) const {
+                return ptr != other.ptr;
+            }
+            iterator &operator++() {
+                ++ptr;
+                return *this;
+            }
+            Fiber &operator*() {
+                return *(Fiber*)ptr;
+            }
+        };
+        iterator begin() {
+            return iterator(containers);
+        }
+        iterator end() {
+            return iterator(containers+nspawned);
+        }
+
         // Transfers ownership of fibers.
         blanket_t(blanket_t &&other) {
             buf = other.buf;
@@ -127,6 +151,10 @@ namespace microblanket {
             *fc->run_func() = run;
 
             return create_fiber_context(fc);
+        }
+
+        Fiber &operator[](unsigned i) {
+            return *containers[i].fiber();
         }
 
         // Get the fiber at index i.

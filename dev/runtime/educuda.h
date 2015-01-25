@@ -116,8 +116,8 @@ namespace edu {
                 nsync = nexit = 0;
             }
 
-            void update(cuda_thread_t *t) {
-                switch(t->status) {
+            void update(cuda_thread_t &t) {
+                switch(t.status) {
                 case cuda_thread_t::Sync: nsync++; break;
                 case cuda_thread_t::Exit: nexit++; break;
                 default: abort();
@@ -238,18 +238,18 @@ namespace edu {
                                                                ithread < iwarp_end;
                                                                ithread++) {
 
-                                                               cuda_thread_t *t = cuda_threads.get_fiber(ithread);
-                                                               if(first || (t->status == cuda_thread_t::SyncWarp)) {
-                                                                   t->resume();
-                                                                   in_sync_warp |= (t->status == cuda_thread_t::SyncWarp);
+                                                               cuda_thread_t &t = cuda_threads[ithread];
+                                                               if(first || (t.status == cuda_thread_t::SyncWarp)) {
+                                                                   t.resume();
+                                                                   in_sync_warp |= (t.status == cuda_thread_t::SyncWarp);
                                                                }
                                                            }
                                                            first = false;
                                                        } while(in_sync_warp);
                                                    }
 
-                                                   for(unsigned ithread = 0; ithread < ncuda_threads; ithread++) {
-                                                       block_state.update( cuda_threads.get_fiber(ithread) );
+                                                   for(auto &t: cuda_threads) {
+                                                       block_state.update(t);
                                                    }
                                                } while(!block_state.is_done());
                                            }

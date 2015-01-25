@@ -42,11 +42,26 @@ int main(int argc, const char **argv) {
         blanket.spawn(run);
     }
 
-    for(unsigned i = 0; i < nfibers; i++) {
-        blanket.get_fiber(i)->resume();
+    // Test iterator
+    {
+        unsigned i = 0;
+        for(MyFiber &f: blanket) {
+            assert(f.fid == i++);
+        }
     }
-    for(unsigned i = 0; i < nfibers; i++) {
-        blanket.get_fiber(i)->resume();
+
+    // Test [] operator
+    {
+        for(unsigned i = 0; i < nfibers; i++) {
+            assert(blanket[i].fid == i);
+        }
+    }
+
+    for(MyFiber &f: blanket) {
+        f.resume();
+    }
+    for(MyFiber &f: blanket) {
+        f.resume();
     }
 
     for(unsigned i = 0; i < nfibers; i++) {
