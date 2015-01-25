@@ -5,6 +5,7 @@
 #include <educuda-api.h>
 #include <eduguard.h>
 #include <edupfm.h>
+#include <microblanket.h>
 
 #include <assert.h>
 #include <functional>
@@ -36,7 +37,7 @@ namespace edu {
             return {x, y, z};
         }
 
-        struct fiber_t {
+        struct cuda_thread_t {
             uint3 idx;
             function<void()> enter_kernel;
             pfm::fiber_context_t ctx;
@@ -51,9 +52,9 @@ namespace edu {
                 Exit
             } status = Birth;
 
-            static edu_thread_local fiber_t *current;
+            static edu_thread_local cuda_thread_t *current;
 
-#define __syncthreads() edu::cuda::fiber_t::current->sync()
+#define __syncthreads() edu::cuda::cuda_thread_t::current->sync()
 
             void set_current() {
                 threadIdx = idx;
@@ -84,7 +85,7 @@ namespace edu {
                 enter_kernel();
             }
 
-            static void __run(fiber_t *thiz) {
+            static void __run(cuda_thread_t *thiz) {
                 thiz->status = Run;
                 thiz->run();
                 thiz->status = Exit;
@@ -101,20 +102,20 @@ namespace edu {
                                         this);
             }
 
-        fiber_t(uint3 idx_,
+        cuda_thread_t(uint3 idx_,
                 function<void()> enter_kernel_)
         : idx(idx_)
         , enter_kernel(enter_kernel_)
                 , status(Birth) {
         }
 
-            ~fiber_t() {
+            ~cuda_thread_t() {
                 pfm::dispose_fiber_context(ctx);
                 pfm::dispose_fiber_context(ctx_main);
             }
         };        
 
-        edu_thread_local fiber_t *fiber_t::current = nullptr;
+        edu_thread_local cuda_thread_t *cuda_thread_t::current = nullptr;
 
         struct fibers_block_t {
             unsigned n;
@@ -130,10 +131,10 @@ namespace edu {
                 nsync = nexit = 0;
             }
 
-            void update(fiber_t f) {
+            void update(cuda_thread_t f) {
                 switch(f.status) {
-                case fiber_t::Sync: nsync++; break;
-                case fiber_t::Exit: nexit++; break;
+                case cuda_thread_t::Sync: nsync++; break;
+                case cuda_thread_t::Exit: nexit++; break;
                 default: abort();
                 }
             }
@@ -173,7 +174,7 @@ namespace edu {
                 }
 
                 mem::set_space(mem::MemorySpace_Device);
-                guard::set_write_callback([](){fiber_t::current->sync_warp();});
+                guard::set_write_callback([](){cuda_thread_t::current->sync_warp();});
 
                 const unsigned nos_threads = pfm::get_thread_count();
 
@@ -221,7 +222,7 @@ namespace edu {
 
                                            for(size_t iblock = iblock_start; iblock < iblock_end; iblock++) {
                                                blockIdx = delinearize(cuda::gridDim, iblock);
-                                               vector<fiber_t> fibers;
+                                               vector<cuda_thread_t> fibers;
                                                fibers.reserve(ncuda_threads);
                             
                                                fibers_block_t fblock{ncuda_threads};
@@ -231,7 +232,7 @@ namespace edu {
                                                        for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
 
                                                            fibers.emplace_back(tIdx, enter_kernel);
-                                                           fiber_t &f = fibers.back();
+                                                           cuda_thread_t &f = fibers.back();
                                                            f.spawn();
                                                        }
                                                    }
@@ -252,17 +253,17 @@ namespace edu {
                                                                ithread < iwarp_end;
                                                                ithread++) {
 
-                                                               fiber_t &f = fibers[ithread];
-                                                               if(first || (f.status == fiber_t::SyncWarp)) {
+                                                               cuda_thread_t &f = fibers[ithread];
+                                                               if(first || (f.status == cuda_thread_t::SyncWarp)) {
                                                                    f.resume();
-                                                                   in_sync_warp |= (f.status == fiber_t::SyncWarp);
+                                                                   in_sync_warp |= (f.status == cuda_thread_t::SyncWarp);
                                                                }
                                                            }
                                                            first = false;
                                                        } while(in_sync_warp);
                                                    }
 
-                                                   for(fiber_t &f: fibers) {
+                                                   for(cuda_thread_t &f: fibers) {
                                                        fblock.update(f);
                                                    }
                                                } while(!fblock.is_done());
