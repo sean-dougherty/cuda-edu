@@ -20,12 +20,14 @@ or device-shared buffers.
 
 ## System Requirements
 
-The primary requirements are a C++11 compiler and libclang. Currently, Linux and Mac are
-supported.
+The primary requirements are a C++11 compiler and libclang. Currently, Linux, Mac, and Windows
+are supported.
 
 For Linux installation instructions, please see [Getting Started on Linux](#getting-started-on-linux).
 
 For Mac installation instructions, please see [Getting Started on Mac](#getting-started-on-mac).
+
+For Window installation instructions, please see [Getting Started on Windows](#getting-started-on-windows).
 
 # Getting Started on Linux
 
@@ -51,6 +53,22 @@ xcode-select --install
 If that doesn't work for you, a quick google search should tell you what you need to do. The
 remainder of the instructions assume that you've got a Terminal open. Please see
 [Getting Started on POSIX](#getting-started-on-posix).
+
+# Getting Started on Windows
+
+cuda-edu on Windows requires that Cygwin be installed. If demand exists, a port to Visual
+Studio could be made.
+
+First, install [Cygwin](https://cygwin.com/install.html) (direct link to 32-bit installer: [installer](https://cygwin.com/setup-x86.exe)).
+Only the 32-bit version has been tested, so it is recommended you stick with that for now.
+Once you have gone through the installation steps of choosing a server and selecting an install directory,
+you'll be allowed to select which packages to install. At a minimum, you'll need to install:
+g++, libclang-devel, make, and git. It is also recommended that you install gdb for debugging. It
+is recommended that you select the option to create a shortcut in your start menu.
+
+Once you have installed those packages, you should be able to start the *Cygwin Terminal* from
+your start menu. Once that executes, you should see a terminal application. From this point,
+you can follow the generic POSIX instructions. Please see [Getting Started on POSIX](#getting-started-on-posix).
 
 # Getting Started on POSIX
 
