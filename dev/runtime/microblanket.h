@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <functional>
+#include <setjmp.h>
 
 #ifdef __clang__
     // {get,set,make}context() are deprecated because the argument passing
@@ -7,12 +8,19 @@
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
-#include <setjmp.h>
-#include <ucontext.h>
-#ifdef __clang__
-    #pragma clang diagnostic push
-#endif
 
+#if !defined(_WIN32)
+    //
+    // POSIX INCLUDES
+    //
+    #include <ucontext.h>
+#else
+    //
+    // WINDOWS INCLUDES
+    //
+    #include <windows.h>
+#endif
+    
 namespace microblanket {
     typedef int fiber_yield_t;
     const fiber_yield_t Fiber_Yield_Exit = -1;
@@ -171,6 +179,31 @@ namespace microblanket {
         }
  
     private:
+        blanket_t(const blanket_t &);
+
+        static fiber_container_t *current_container() {
+            int stack_var;
+            size_t thiz = size_t(&stack_var) & ~(sizeof(fiber_container_t) - 1);
+            return (fiber_container_t*)thiz;
+        }
+
+        static void fiber_entry() {
+            fiber_container_t *fc = current_container();
+            Fiber *f = fc->fiber();
+            fiber_run_t &run_func = *fc->run_func();
+
+            run_func(f);
+
+            if(0 == setjmp(f->jmp_this)) {
+                longjmp(*f->jmp_main, Fiber_Yield_Exit);
+            }
+            abort(); // fiber has exited, but we've been asked to resume!
+        }
+
+#if !defined(_WIN32)
+        //
+        // POSIX create context
+        // 
         fiber_yield_t create_fiber_context(fiber_container_t *fc) {
             ucontext_t ctxt;
             jmp_buf jmp_main;
@@ -196,27 +229,38 @@ namespace microblanket {
             }
             return rc;
         }
-
-        static fiber_container_t *current_container() {
-            int stack_var;
-            size_t thiz = size_t(&stack_var) & ~(sizeof(fiber_container_t) - 1);
-            return (fiber_container_t*)thiz;
-        }
-
-        static void fiber_entry() {
-            fiber_container_t *fc = current_container();
-            Fiber *f = fc->fiber();
-            fiber_run_t &run_func = *fc->run_func();
-
-            run_func(f);
-
-            if(0 == setjmp(f->jmp_this)) {
-                longjmp(*f->jmp_main, Fiber_Yield_Exit);
+#else
+        //
+        // WINDOWS create context
+        // 
+        fiber_yield_t create_fiber_context(fiber_container_t *fc) {
+            CONTEXT ctxt;
+            jmp_buf jmp_main;
+        
+            ctxt.ContextFlags = CONTEXT_FULL;
+            if(!GetThreadContext(GetCurrentThread(), &ctxt)) {
+                abort();
             }
-            abort(); // fiber has exited, but we've been asked to resume!
-        }
 
-        blanket_t(const blanket_t &);
+            char *sp = (char*)fc->stack + sizeof(fc->stack);
+    #if defined(_X86_)
+            ctxt.Eip = (size_t) fiber_entry;
+            ctxt.Esp = (size_t) (sp - 4);
+    #else
+            ctxt.Rip = (size_t) fiber_entry;
+            ctxt.Rsp = (size_t) (sp - 40);
+    #endif
+
+            fiber_yield_t rc = setjmp(jmp_main);
+            if(rc == 0) {
+                fc->fiber()->jmp_main = &jmp_main;
+                if(!SetThreadContext(GetCurrentThread(), &ctxt)) {
+                    abort();
+                }
+            }
+            return rc;
+        }
+#endif
     };
 
     //------------------------------------------------------------
@@ -256,3 +300,7 @@ namespace microblanket {
         }
     };
 }
+
+#ifdef __clang__
+    #pragma clang diagnostic pop
+#endif
