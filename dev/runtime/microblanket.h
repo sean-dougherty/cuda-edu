@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <functional>
 #include <setjmp.h>
+#include <vector>
 
 #ifdef __clang__
     // {get,set,make}context() are deprecated because the argument passing
@@ -43,65 +44,50 @@ namespace microblanket {
           
     private:
         typedef typename Fiber::stack_buf_t stack_buf_t;
-        // Contains stack buffer, fiber, and fiber run function. Assumes that stacks grow
-        // from high address to low address, keeps fiber datastructure and its run
-        // function at the low bytes of the stack buffer.
+        // Contains stack buffer, pointer to fiber,  and fiber run function.
+        // Assumes that stacks grow from high address to low address, keeps
+        // fiber run function at the low bytes of the stack buffer.
         struct fiber_container_t {
+            struct header_t {
+                Fiber *fiber;
+                fiber_run_t run_func;
+            };
             stack_buf_t stack;
-            Fiber *fiber() {return (Fiber*)this;}
-            fiber_run_t *run_func() {return (fiber_run_t*)(fiber() + 1);}
+            void set_fiber(Fiber *f) {((header_t*)this)->fiber = f;}
+            Fiber *fiber() {return ((header_t*)this)->fiber;}
+            fiber_run_t *run_func() {return &((header_t*)this)->run_func;}
         };
 
         void *buf;
         fiber_container_t *containers;
-        unsigned capacity;
-        unsigned nspawned;
+        std::vector<Fiber> fibers;
 
-        static_assert( sizeof(stack_buf_t) > (sizeof(Fiber)+sizeof(fiber_run_t)),
+        static_assert( sizeof(stack_buf_t) > sizeof(fiber_run_t),
                        "stack too small" );
         static_assert( is_power_of_2(sizeof(stack_buf_t)),
                        "stack size must be power of 2." );
     public:
-        struct iterator : public std::iterator<std::input_iterator_tag, Fiber> {
-        private:
-            fiber_container_t *ptr;
-        public:
-            iterator(fiber_container_t *ptr_) : ptr(ptr_) {
-            }
-            bool operator!=(const iterator &other) const {
-                return ptr != other.ptr;
-            }
-            iterator &operator++() {
-                ++ptr;
-                return *this;
-            }
-            Fiber &operator*() {
-                return *(Fiber*)ptr;
-            }
-        };
+        typedef typename std::vector<Fiber>::iterator iterator;
+;
         iterator begin() {
-            return iterator(containers);
+            return fibers.begin();
         }
         iterator end() {
-            return iterator(containers+nspawned);
+            return fibers.end();
         }
 
         // Transfers ownership of fibers.
         blanket_t(blanket_t &&other) {
             buf = other.buf;
             containers = other.containers;
-            capacity = other.capacity;
+            fibers = std::move(other.fibers);
 
             other.buf = nullptr;
             other.containers = nullptr;
-            other.capacity = 0;
         }
 
-        // Allocates fibers and their stacks. Fibers
-        // not yet constructed.
-        blanket_t(unsigned capacity_)
-            : capacity(capacity_)
-            , nspawned(0) {
+        // Allocates memory for fibers and their stacks.
+        blanket_t(unsigned capacity) {
             // Custom align malloc logic so no worries about platform stuff.
             {
                 const size_t sizeof_cont = sizeof(fiber_container_t);
@@ -113,22 +99,7 @@ namespace microblanket {
                 size_t cont_addr = (size_t(buf) + sizeof_cont) & ~(sizeof_cont-1);
                 containers = (fiber_container_t*)cont_addr;
             }
-        }
-
-    private:
-        void construct_fiber(unsigned i) {
-            fiber_container_t *fc = containers + i;
-            Fiber *f = fc->fiber();
-            new (f) Fiber();
-            f->fid = i;
-            fiber_run_t *run_func = fc->run_func();
-            new (run_func) fiber_run_t();
-        }
-
-        void destruct_fiber(unsigned i) {
-            fiber_container_t *fc = containers + i;
-            fc->fiber()->~Fiber();
-            fc->run_func()->~fiber_run_t();
+            fibers.reserve(capacity);
         }
 
     public:
@@ -144,33 +115,31 @@ namespace microblanket {
         }
 
         void clear() {
-            for(unsigned i = 0; i < nspawned; i++) {
-                destruct_fiber(i);
+            for(unsigned i = 0; i < fibers.size(); i++) {
+                fiber_container_t *fc = containers + i;
+                fc->run_func()->~fiber_run_t();
             }
-            nspawned = 0;
+            fibers.resize(0);
         }
 
         // Creates fiber context, switches to it, executes run, and returns once
         // fiber yields or exits.
         fiber_yield_t spawn(fiber_run_t run) {
-            assert(nspawned < capacity);
+            unsigned i = fibers.size();
+            assert(i < fibers.capacity());
 
-            unsigned i = nspawned++;
-
-            construct_fiber(i);
+            fibers.resize(i+1);
+            fibers.back().fid = i;
+            
             fiber_container_t *fc = containers + i;
-            *fc->run_func() = run;
+            fc->set_fiber(&fibers.back());
+            new (fc->run_func()) fiber_run_t(run);
 
             return create_fiber_context(fc);
         }
 
         Fiber &operator[](unsigned i) {
-            return *containers[i].fiber();
-        }
-
-        // Get the fiber at index i.
-        Fiber *get_fiber(unsigned i) {
-            return containers[i].fiber();
+            return fibers[i];
         }
 
         // Returns the currently executing fiber. If no fiber is executing, will return garbage.
