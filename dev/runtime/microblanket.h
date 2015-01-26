@@ -156,6 +156,7 @@ namespace microblanket {
             return (fiber_container_t*)thiz;
         }
 
+        // Entry-point for newly spawned fiber. We are now in the fiber's stack.
         static void fiber_entry() {
             fiber_container_t *fc = current_container();
             Fiber *f = fc->fiber();
@@ -163,7 +164,9 @@ namespace microblanket {
 
             run_func(f);
 
-            if(0 == setjmp(f->jmp_this)) {
+            jmp_buf jmp_this;
+            f->jmp_this = &jmp_this;
+            if(0 == setjmp(jmp_this)) {
                 longjmp(*f->jmp_main, Fiber_Yield_Exit);
             }
             abort(); // fiber has exited, but we've been asked to resume!
@@ -239,7 +242,7 @@ namespace microblanket {
     //------------------------------------------------------------
     template<size_t StackSize>
     class fiber_t {
-        jmp_buf jmp_this, *jmp_main;
+        jmp_buf *jmp_this, *jmp_main;
 
         template<typename T>
             friend class blanket_t;
@@ -252,8 +255,10 @@ namespace microblanket {
         static void yield(fiber_yield_t yield_value = 1) {
             assert(yield_value != 0);
 
+            jmp_buf jmp_this;
             fiber_t<StackSize> *f = blanket_t<fiber_t<StackSize>>::current_fiber();
-            if(0 == setjmp(f->jmp_this)) {
+            f->jmp_this = &jmp_this;
+            if(0 == setjmp(jmp_this)) {
                 longjmp(*f->jmp_main, yield_value);
             }
         }
@@ -263,7 +268,7 @@ namespace microblanket {
             fiber_yield_t rc = setjmp(jmp_main);
             if(rc == 0) {
                 this->jmp_main = &jmp_main;
-                longjmp(jmp_this, 1);
+                longjmp(*jmp_this, 1);
             }
             return rc;
         }
