@@ -6,10 +6,10 @@ function err() {
 
 function get_pfm() {
     local un=$(uname)
-    if echo $un | grep -i cygwin &> /dev/null;
-    then echo "Cygwin"
+    if echo $un | grep -i cygwin &> /dev/null; then
+        echo "Cygwin"
     else
-	return $un
+	    echo $un
     fi
 }
 
