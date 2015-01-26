@@ -49,8 +49,7 @@ namespace microblanket {
         unsigned capacity;
         unsigned nspawned;
 
-        // Unless Fiber is gigantic, stack must be power of 2 >= 4096.
-        static_assert( sizeof(stack_buf_t) > (sizeof(Fiber)+sizeof(fiber_run_t)+2048),
+        static_assert( sizeof(stack_buf_t) > (sizeof(Fiber)+sizeof(fiber_run_t)),
                        "stack too small" );
         static_assert( is_power_of_2(sizeof(stack_buf_t)),
                        "stack size must be power of 2." );

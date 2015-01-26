@@ -36,48 +36,53 @@ int main(int argc, const char **argv) {
 
     MyBlanket blanket{nfibers};
 
-    auto run = [](MyFiber *f){f->run();};
+    for(unsigned it = 0; it < 10; it++) {
+        blanket.clear();
+        entries.clear();
 
-    for(unsigned i = 0; i < nfibers; i++) {
-        blanket.spawn(run);
-    }
+        auto run = [](MyFiber *f){f->run();};
 
-    // Test iterator
-    {
-        unsigned i = 0;
-        for(MyFiber &f: blanket) {
-            assert(f.fid == i++);
-        }
-    }
-
-    // Test [] operator
-    {
         for(unsigned i = 0; i < nfibers; i++) {
-            assert(blanket[i].fid == i);
+            blanket.spawn(run);
         }
-    }
 
-    for(MyFiber &f: blanket) {
-        f.resume();
-    }
-    for(MyFiber &f: blanket) {
-        f.resume();
-    }
+        // Test iterator
+        {
+            unsigned i = 0;
+            for(MyFiber &f: blanket) {
+                assert(f.fid == i++);
+            }
+        }
 
-    for(unsigned i = 0; i < nfibers; i++) {
-        entry_t e = entries[i];
-        assert(e.fiber_id == i);
-        assert(e.state == entry_t::Enter);
-    }
-    for(unsigned i = 0; i < nfibers; i++) {
-        entry_t e = entries[nfibers+i];
-        assert(e.fiber_id == i);
-        assert(e.state == entry_t::Middle);
-    }
-    for(unsigned i = 0; i < nfibers; i++) {
-        entry_t e = entries[nfibers*2+i];
-        assert(e.fiber_id == i);
-        assert(e.state == entry_t::Exit);
+        // Test [] operator
+        {
+            for(unsigned i = 0; i < nfibers; i++) {
+                assert(blanket[i].fid == i);
+            }
+        }
+
+        for(MyFiber &f: blanket) {
+            f.resume();
+        }
+        for(MyFiber &f: blanket) {
+            f.resume();
+        }
+
+        for(unsigned i = 0; i < nfibers; i++) {
+            entry_t e = entries[i];
+            assert(e.fiber_id == i);
+            assert(e.state == entry_t::Enter);
+        }
+        for(unsigned i = 0; i < nfibers; i++) {
+            entry_t e = entries[nfibers+i];
+            assert(e.fiber_id == i);
+            assert(e.state == entry_t::Middle);
+        }
+        for(unsigned i = 0; i < nfibers; i++) {
+            entry_t e = entries[nfibers*2+i];
+            assert(e.fiber_id == i);
+            assert(e.state == entry_t::Exit);
+        }
     }
     
     cout << "=== Done" << endl;
