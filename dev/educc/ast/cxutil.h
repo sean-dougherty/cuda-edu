@@ -3,6 +3,7 @@
 #include <clang-c/Index.h>
 #include <assert.h>
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <iostream>

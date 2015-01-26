@@ -19,7 +19,7 @@ mp: mp.cu $(wildcard ${EDUHOME}/dev/runtime/*.h) $(shell readlink Makefile) ${co
 	@# phase passes, processes it with ast and then compile a second time.
 	@# Won't be necessary if we can get friendlier messages from libclang.
 	${CXX} -I${EDUHOME}/dev/runtime -o ${exe_tmp} ${srcgen_cu2cpp} ${RT_CXXFLAGS_PASS0}
-	${astcc} ${ast_include} ${srcgen_cu2cpp} > ${srcgen_ast}
+	${astcc} ${srcgen_cu2cpp} ${ast_include} ${AST_CXXINCLUDES} > ${srcgen_ast}
 	${CXX} -I${EDUHOME}/dev/runtime -o ${exe_tmp} ${srcgen_ast} ${RT_CXXFLAGS_PASS1}
 	mv ${exe_tmp} $@
 

@@ -5,7 +5,7 @@ set -e
 # Contains find_program() and find_file()
 source dev/etc/configure-util.sh
 
-case $(uname) in
+case $(get_pfm) in
     Darwin)
 	cxx=$(find_program "c++ compiler" "clang++ g++")
         cxxflags="-std=c++11 -g -Wall -D_XOPEN_SOURCE"
@@ -25,7 +25,20 @@ case $(uname) in
         clang_include="-I$PWD/dev/ext/include"
         clang_lib_dir="`xcode-select --print-path`/Toolchains/XcodeDefault.xctoolchain/usr/lib"
         clang_lib="-rpath ${clang_lib_dir} -L${clang_lib_dir} -lclang"
+	ast_cxxincludes=""
         ;;        
+    Cygwin)
+	cxx=$(find_program "c++ compiler" "g++")
+	cxxflags="-std=c++11 -g -Wall -I$PWD/dev/runtime/windows"
+        ldflags="-lrt -lpthread"
+        clang_index_h=$(find_file "libclang headers" "clang-c/Index.h" "/usr/include" "/usr")
+        clang_include="-I$(dirname $(dirname ${clang_index_h}))"
+        clang_lib=$(find_file "libclang library" "libclang.dll.a" "/usr/lib" "/usr")
+	path_cxx_cmath=$(find_file "C++ cmath header" "c++/cmath" "/usr/lib/gcc" "/usr")
+	path_cxx_config=$(find_file "C++ config header" "bits/c++config.h" $(dirname ${path_cxx_cmath}) "/usr")
+	path_c_stddef=$(find_file "C stddef.h" "stddef.h" $(dirname $(dirname ${path_cxx_cmath})) "/usr")
+	ast_cxxincludes="-I$(dirname ${path_cxx_cmath}) -I$(dirname $(dirname ${path_cxx_config})) -I$(dirname ${path_c_stddef})"
+        ;;
     *)
 	cxx=$(find_program "c++ compiler" "g++ clang++")
         cxxflags="-std=c++11 -g -Wall"
@@ -33,6 +46,7 @@ case $(uname) in
         clang_index_h=$(find_file "libclang headers" "clang-c/Index.h" "/usr/include" "/usr")
         clang_include="-I$(dirname $(dirname ${clang_index_h}))"
         clang_lib=$(find_file "libclang library" "libclang.so" "/usr/lib" "/usr")
+	ast_cxxincludes=""
         ;;
 esac
 
@@ -43,6 +57,7 @@ sed -e "s|__configure_cxx__|$cxx|" \
     -e "s|__configure_ldflags__|$ldflags|" \
     -e "s|__configure_clang_include__|$clang_include|" \
     -e "s|__configure_clang_lib__|$clang_lib|" \
+    -e "s|__configure_ast_cxxincludes__|$ast_cxxincludes|" \
     dev/etc/Makefile.conf.in > Makefile.conf
 printf "OK\n"
 

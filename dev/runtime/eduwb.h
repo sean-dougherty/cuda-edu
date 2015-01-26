@@ -355,10 +355,9 @@ namespace edu {
             wbImage_delete(output);
         }
 
-        enum wbLog_level_t {
-            ERROR,
-            TRACE
-        };
+        #define ERROR 0
+	#define TRACE 1
+	
         template<typename T>
             void __wbLog(T x) {
             cout << x;
@@ -369,7 +368,7 @@ namespace edu {
             __wbLog(args...);
         }
         template<typename... T>
-            void wbLog(wbLog_level_t lvl, T... args) {
+            void wbLog(int lvl, T... args) {
             __wbLog(args...);
             cout << endl;
         }

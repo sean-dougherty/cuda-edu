@@ -54,7 +54,11 @@ namespace edu {
             typedef long long llong;
 
             try {
+#ifdef __CYGWIN__
+	        llong val = atoll(str.c_str());
+#else		
                 llong val = stoll(str);
+#endif		
                 if(val >= llong(minval) && val <= llong(maxval)) {
                     return unsigned(val);
                 }

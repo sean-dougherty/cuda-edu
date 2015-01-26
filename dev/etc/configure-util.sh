@@ -4,6 +4,15 @@ function err() {
     exit 1
 }
 
+function get_pfm() {
+    local un=$(uname)
+    if echo $un | grep -i cygwin &> /dev/null;
+    then echo "Cygwin"
+    else
+	return $un
+    fi
+}
+
 function find_program() {
     local description="$1"
     local candidates="$2"

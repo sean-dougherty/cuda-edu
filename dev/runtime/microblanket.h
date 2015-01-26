@@ -10,7 +10,11 @@
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-#if !defined(_WIN32)
+#if defined(_WIN32) || defined(__CYGWIN__)
+    #define EDU_WIN
+#endif
+
+#if !defined(EDU_WIN)
     //
     // POSIX INCLUDES
     //
@@ -172,7 +176,7 @@ namespace microblanket {
             abort(); // fiber has exited, but we've been asked to resume!
         }
 
-#if !defined(_WIN32)
+#if !defined(EDU_WIN)
         //
         // POSIX create context
         // 

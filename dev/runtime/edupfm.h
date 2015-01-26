@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <cstdlib>
 #include <thread>
-#include <ucontext.h>
 
 namespace edu {
     namespace pfm {

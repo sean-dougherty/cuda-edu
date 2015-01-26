@@ -10,14 +10,20 @@ void process_globals(SourceEditor &editor, CXCursor tu, vector<CXCursor> &decls)
 //---
 //------------------------------------------------------------
 int main(int argc, const char **argv) {
-    if(argc != 3) {
-        err("usage: educc-ast include path_cpp");
+    if(argc < 3) {
+        err("usage: educc-ast path_cpp clang_args...");
     }
-    string include = argv[1];
-    string path_in = argv[2];
+    int argi = 1;
+    string path_in = argv[argi++];
+
+    vector<const char *> clang_args;
+    for(; argi < argc; argi++) {
+        clang_args.push_back(argv[argi]);
+    }
+    clang_args.push_back("-x");
+    clang_args.push_back("cuda");    
 
     CXIndex index = clang_createIndex(1, 1);
-    vector<const char *> clang_args = {include.c_str(), "-x", "cuda"};
     CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index,
                                                                      path_in.c_str(),
                                                                      clang_args.size(),
