@@ -149,6 +149,8 @@ namespace edu {
             dim3 blockDim;
             unsigned int dynamic_shared_size;
 
+            vector<char *> all_dynamic_shared;
+
             driver_t(dim3 gridDim_,
                      dim3 blockDim_,
                      unsigned int dynamic_shared_size_ = 0)
@@ -174,6 +176,15 @@ namespace edu {
                 const unsigned ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
                 const unsigned blocks_per_osthread = nblocks / nos_threads;
 
+                if(dynamic_shared_size) {
+                    all_dynamic_shared.resize(nos_threads);
+                    for(unsigned ithread = 0; ithread < nos_threads; ithread++) {
+                        all_dynamic_shared[ithread] =
+                            (char *)mem::alloc(mem::MemorySpace_Device,
+                                               dynamic_shared_size);
+                    }
+                }
+
                 vector<unique_ptr<thread>> threads;
                 // I would just use OpenMP here, but not supported by clang yet.
                 for(unsigned ithread = 0; ithread < nos_threads; ithread++) {
@@ -182,10 +193,16 @@ namespace edu {
                     unsigned iblock_end = (ithread == nos_threads - 1) ? nblocks : iblock_start + nblocks;
 
                     auto osthread_task = [=]() {
+                        if(dynamic_shared_size) {
+                            dynamic_shared = all_dynamic_shared[ithread];
+                        }
                         execute_blocks(iblock_start,
                                        iblock_end,
                                        ncuda_threads,
                                        enter_kernel);
+                        if(dynamic_shared_size) {
+                            dynamic_shared = nullptr;
+                        }
                     };
 
                     threads.push_back(unique_ptr<thread>(new thread(osthread_task)));
@@ -195,6 +212,14 @@ namespace edu {
                     t->join();
                 }
 
+                if(dynamic_shared_size) {
+                    for(unsigned ithread = 0; ithread < nos_threads; ithread++) {
+                        mem::dealloc(mem::MemorySpace_Device, all_dynamic_shared[ithread]);
+                        all_dynamic_shared[ithread] = nullptr;
+                    }
+                }
+
+
                 mem::set_space(mem::MemorySpace_Host);
                 guard::clear_write_callback();
             }
@@ -203,11 +228,6 @@ namespace edu {
                                 unsigned iblock_end,
                                 unsigned ncuda_threads,
                                 function<void()> enter_kernel) {
-
-                if(dynamic_shared_size) {
-                    dynamic_shared = (char *)mem::alloc(mem::MemorySpace_Device,
-                                                        dynamic_shared_size);
-                }
                 microblanket::blanket_t<cuda_thread_t> cuda_threads{ncuda_threads};
 
                 for(size_t iblock = iblock_start; iblock < iblock_end; iblock++) {
@@ -257,11 +277,6 @@ namespace edu {
                             block_state.update(t);
                         }
                     } while(!block_state.is_done());
-                }
-
-                if(dynamic_shared_size) {
-                    mem::dealloc(mem::MemorySpace_Device, dynamic_shared);
-                    dynamic_shared = nullptr;
                 }
             }
         };
