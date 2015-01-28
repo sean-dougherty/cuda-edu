@@ -211,8 +211,11 @@ void test_cudaMalloc() {
     ptr_guard_t<float> p;
     __malloc((void**)&p, sizeof(float)*N);
 
+    assert(p.buf.addr == p.ptr);
+    assert(p.buf.space == mem::MemorySpace_Host);
     for(size_t i = 0; i < N; i++)
         p[i] = i;
+    assert(p.buf.space == mem::MemorySpace_Host);
 
     expect_fail(p[-1]);
     expect_fail(p[N]);

@@ -1,7 +1,5 @@
 #pragma once
 
-//todo: prevent writes to __constant__ in kernel
-
 #include <edumem.h>
 
 #include <functional>
@@ -11,6 +9,14 @@ namespace edu {
         using namespace std;
         using edu::mem::Buffer;
 
+        //------------------------------------------------------------
+        //---
+        //--- Write Callback Mechanism
+        //---
+        //--- The write callback gives us a hook for when memory is
+        //--- updated, which allows us to coordinate threads in a
+        //--- warp.
+        //------------------------------------------------------------
         enum write_callback_state_t {
             Write_Callback_Clear,
             Write_Callback_Set
@@ -29,6 +35,42 @@ namespace edu {
             write_callback_state = Write_Callback_Clear;
         }
 
+        //------------------------------------------------------------
+        //---
+        //--- STRUCT dptr_guard_t
+        //---
+        //--- double pointer guard (void **), which gives us a
+        //--- callback hook for things like cudaMalloc()
+        //------------------------------------------------------------
+        template<typename T>
+            struct dptr_guard_t {
+                T **dptr;
+                function<void()> callback;
+
+                dptr_guard_t(T **_dptr, function<void()> _callback)
+                : dptr(_dptr)
+                , callback(_callback) {
+                }
+
+                ~dptr_guard_t() {
+                    callback();
+                }
+
+                operator T**() {
+                    return dptr;
+                }
+
+                operator void**() {
+                    return (void **)dptr;
+                }
+            };
+
+        //------------------------------------------------------------
+        //---
+        //--- STRUCT ptr_guard_t
+        //---
+        //--- Guards a pointer from buffer overflow
+        //------------------------------------------------------------
         template<typename T>
             struct ptr_guard_t {
                 struct element_guard_t {
@@ -50,41 +92,39 @@ namespace edu {
 
                 element_guard_t *ptr;
                 Buffer buf;
-                void *buf_ptr; // detect when changed via cudaMalloc(void **);
 
                 ptr_guard_t() {
                     ptr = nullptr;
                     buf = Buffer::get_uninitialized();
-                    buf_ptr = nullptr;
                 }
 
                 ptr_guard_t(T *ptr_) : ptr((element_guard_t*)ptr_) {
                     if(!mem::find_buf(ptr, &buf)) {
                         buf = Buffer::get_universe();
                     }
-                    buf_ptr = ptr;
                 }
 
                 ptr_guard_t(T *ptr_, Buffer buf_)
                     : ptr_guard_t((element_guard_t *)ptr_, buf_) {
                 }
                 ptr_guard_t(element_guard_t *ptr_, Buffer buf_)
-                    : ptr(ptr_), buf(buf_), buf_ptr(ptr_) {
+                    : ptr(ptr_), buf(buf_) {
                 }
 
                 ptr_guard_t &operator=(T *ptr_) {
                     this->~ptr_guard_t();
                     return *(new (this) ptr_guard_t(ptr_));
                 }
+
+                dptr_guard_t<T> operator&() {
+                    return dptr_guard_t<T>((T**)&ptr,
+                                           [this]() {
+                                               mem::find_buf(ptr, &buf);
+                                           });
+                }
                 
 
                 void check_offset(int i) {
-                    if(ptr != buf_ptr) { // must have been changed by cudaMalloc()
-                        if(!mem::find_buf(ptr, &buf)) {
-                            buf = Buffer::get_universe();
-                            buf_ptr = ptr;
-                        }
-                    }
                     if(!buf.is_valid_offset(ptr, i * sizeof(T))) {
                         edu_err("Buffer bounds violated.");
                     }
@@ -118,7 +158,6 @@ namespace edu {
 
                 ptr_guard_t &operator+=(int i) {
                     ptr += i;
-                    buf_ptr = ptr; // we don't want a new Buffer to be looked up.
                     return *this;
                 }
 
@@ -150,6 +189,12 @@ namespace edu {
             };
 
 
+        //------------------------------------------------------------
+        //---
+        //--- STRUCT array1_guard
+        //---
+        //--- guard for 1-dimensional array.
+        //------------------------------------------------------------
         template<typename T, int xlen>
             struct array1_guard_t {
                 struct element_guard_t {
@@ -189,6 +234,12 @@ namespace edu {
                 }
             };
 
+        //------------------------------------------------------------
+        //---
+        //--- STRUCT array2_guard
+        //---
+        //--- guard for 2-dimensional array.
+        //------------------------------------------------------------
         template<typename T, int xlen, int ylen>
             struct array2_guard_t {
                 array1_guard_t<T, ylen> data[xlen];
@@ -203,6 +254,12 @@ namespace edu {
                 }
             };
 
+        //------------------------------------------------------------
+        //---
+        //--- STRUCT array3_guard
+        //---
+        //--- guard for 3-dimensional array.
+        //------------------------------------------------------------
         template<typename T, int xlen, int ylen, int zlen>
             struct array3_guard_t {
                 array2_guard_t<T, ylen, zlen> data[xlen];
