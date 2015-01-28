@@ -23,6 +23,8 @@ or device-shared buffers.
 The primary requirements are a C++11 compiler and libclang. Currently, Linux, Mac, and Windows
 are supported.
 
+Before you start doing development, consider checking out the [Debugging Tips & Information Wiki](https://github.com/sean-dougherty/cuda-edu/wiki/Debugging-Tips-&-Information).
+
 For Linux installation instructions, please see [Getting Started on Linux](#getting-started-on-linux).
 
 For Mac installation instructions, please see [Getting Started on Mac](#getting-started-on-mac).
@@ -242,7 +244,3 @@ So, if you wanted to execute against dataset 0, you would execute:
 ```
 ./mp data/0
 ```
-
-# Getting Started (Windows)
-
-Coming soon.
