@@ -213,24 +213,24 @@ namespace edu {
                 static_assert(sizeof(element_guard_t) == sizeof(T), "element guard added padding!");
                 static_assert(alignof(element_guard_t) == alignof(T), "element guard added padding!");
 
-                element_guard_t data[xlen];
+                T data[xlen];
 
                 element_guard_t &operator[](int i) {
                     edu_assert(i >= 0 && i < xlen);
-                    return data[i]; 
+                    return (element_guard_t&)data[i]; 
                 }
 
                 operator element_guard_t*() {
-                    return data;
+                    return (element_guard_t*)data;
                 }
 
                 element_guard_t *operator+(int i) {
                     edu_assert(i >= 0 && (i*sizeof(T)) < sizeof(data));
-                    return data + i;
+                    return (element_guard_t*)(data + i);
                 }
 
                 element_guard_t *operator-(int i) {
-                    return *this + (-i);
+                    return (element_guard_t*)(*this + (-i));
                 }
             };
 
@@ -242,15 +242,15 @@ namespace edu {
         //------------------------------------------------------------
         template<typename T, int xlen, int ylen>
             struct array2_guard_t {
-                array1_guard_t<T, ylen> data[xlen];
+                array1_guard_t<T, ylen> data2[xlen];
 
                 array1_guard_t<T, ylen> &operator[](int i) {
                     edu_assert(i >= 0 && i < xlen);
-                    return data[i]; 
+                    return data2[i]; 
                 }
 
                 operator T*() {
-                    return (T*)data;
+                    return (T*)data2;
                 }
             };
 
@@ -262,15 +262,15 @@ namespace edu {
         //------------------------------------------------------------
         template<typename T, int xlen, int ylen, int zlen>
             struct array3_guard_t {
-                array2_guard_t<T, ylen, zlen> data[xlen];
+                array2_guard_t<T, ylen, zlen> data3[xlen];
 
                 array2_guard_t<T, ylen, zlen> &operator[](int i) {
                     edu_assert(i >= 0 && i < xlen);
-                    return data[i]; 
+                    return data3[i]; 
                 }
 
                 operator T*() {
-                    return (T*)data;
+                    return (T*)data3;
                 }
             };
 
