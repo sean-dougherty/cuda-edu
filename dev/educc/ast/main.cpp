@@ -11,7 +11,7 @@ void process_globals(SourceEditor &editor, CXCursor tu, vector<CXCursor> &decls)
 //---
 //------------------------------------------------------------
 int main(int argc, const char **argv) {
-    if(argc < 3) {
+    if(argc < 2) {
         err("usage: educc-ast [--dump-ast] path_cpp clang_args...");
     }
     bool dump_ast = false;
@@ -84,11 +84,55 @@ int main(int argc, const char **argv) {
         process_globals(editor, cursor, var_decls);
     }
 
+    // Generate the output
     editor.commit(SourceExtractor::get_file_buffer(path_in), cout);
 
+    // Exit
     bool errors = has_errors(tu);
     clang_disposeTranslationUnit(tu);
     return errors ? 1 : 0;
+}
+
+//------------------------------------------------------------
+//---
+//--- generate_guarded_type()
+//---
+//------------------------------------------------------------
+void generate_guarded_type(ostream &out,
+                           CXCursor var_decl,
+                           size_t *initializer_skip = nullptr) {
+    for(CXCursor a: get_children(var_decl, CXCursor_AnnotateAttr)) {
+        string s = spelling(a);
+        if( s != "__shared__") {
+            out << s << " ";
+        }
+    }
+
+    if(initializer_skip) {
+        *initializer_skip = 0;
+    }
+
+    CXType t = type(var_decl);
+    if(is_single_pointer(t) || is_empty_array(t)) {
+        out << "edu::guard::ptr_guard_t<" << get_pointee_type(var_decl) << ">";
+    } else if(::is_array(t)) {
+        vector<llong> dims = get_array_dims(t);
+        if(dims.size() < 1 || dims.size() > 3) {
+            curserr(var_decl, "Unsuppored array dimensions");
+        }
+        out << "edu::guard::array" << dims.size() << "_guard_t";
+        out << "<" << get_array_type(t);
+        for(llong dim: dims) {
+            out << ", " << dim;
+        }
+        out << ">";
+        if(initializer_skip) {
+            *initializer_skip = dims.size();
+        }
+    } else {
+        out << type(var_decl);
+    }
+    
 }
 
 //------------------------------------------------------------
@@ -101,9 +145,12 @@ int main(int argc, const char **argv) {
 void process_parm_decl(SourceEditor &editor, CXCursor decl) {
     CXType ptype = type(decl);
 
-    if(is_single_pointer(ptype)) {
+    if(is_single_pointer(ptype)
+       // kind of a kludge... targeted at main(char *argv[])
+       || (is_empty_array(ptype) && !::is_pointer(get_pointee_type(decl)))) {
         stringstream ss;
-        ss << "edu::guard::ptr_guard_t<" << clang_getPointeeType(ptype) << "> " << spelling(decl);
+        generate_guarded_type(ss, decl);
+        ss << " " << spelling(decl);
         vector<CXCursor> init = get_children(decl);
         if(init.size()) {
             ss << " = " << SourceExtractor::extract(start(init.front()), end(init.back()));
@@ -117,7 +164,8 @@ void process_parm_decl(SourceEditor &editor, CXCursor decl) {
 //--- process_var_decls()
 //---
 //--- Protect any pointers or arrays with guards. Insert init
-//--- call for dynamic shared buffers.
+//--- call for dynamic shared buffers. Create references to
+//--- static shared buffers.
 //---
 //------------------------------------------------------------
 void process_var_decls(SourceEditor &editor, CXCursor decl) {
@@ -125,7 +173,7 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
     vector<CXCursor> vars = get_children(decl, CXCursor_VarDecl);
     for(CXCursor c: vars) {
         CXType t = type(c);
-        if(is_single_pointer(t) || ::is_array(t)) {
+        if(is_single_pointer(t) || ::is_array(t) || is_shared(c)) {
             modify = true;
         }
     }
@@ -133,45 +181,41 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
 
     stringstream ss;
     for(CXCursor var: vars) {
-        if(is_extern(var) && has_annotation(var, "__shared__")) {
-            CXType t = type(var);
-            CXType pointee_type;
-            if(is_single_pointer(t)) {
-                pointee_type = clang_getPointeeType(t);
-            } else if(is_empty_array(t)) {
-                pointee_type = clang_getElementType(t);
-            } else {
-                cerr(var, "Expect extern __shared__ to be pointer or empty array.");
-            }
-            ss << "edu::guard::ptr_guard_t<" << spelling(pointee_type) << "> " << spelling(var)
-               << " = (" << spelling(pointee_type) << "*)__edu_cuda_get_dynamic_shared();";
+        //---
+        //--- Dynamic Shared
+        //---
+        if(is_extern(var) && is_shared(var)) {
+            generate_guarded_type(ss, var);
+            ss << " " << spelling(var)
+               << " = (" << spelling(get_pointee_type(var)) << "*)__edu_cuda_get_dynamic_shared();";
+        //---
+        //--- Static Shared
+        //---
+        } else if(is_shared(var)) {
+            // This logic is complicated by lldb not being able to see thread-local
+            // storage (as of Jan 2015). We need to declare a variable on the stack
+            // that references the actual shared storage.
+            const char *shared_name_prefix = "__edu_cuda_shared_";
+
+            // First generate the shared storage
+            ss << "__edu_cuda_shared_storage ";
+            generate_guarded_type(ss, var);
+            ss << " " << shared_name_prefix << spelling(var) << ";";
+
+            // Now create the local reference, which lldb can see.
+            generate_guarded_type(ss, var);
+            ss << " &" << spelling(var) << " = "
+               << shared_name_prefix << spelling(var) << ";";
+            
+        //---
+        //--- Anything else
+        //---
         } else {
-            for(CXCursor a: get_children(var, CXCursor_AnnotateAttr)) {
-                ss << spelling(a) << " ";
-            }
-            CXType t = type(var);
-            size_t initializer_skip = 0;
-            if(is_single_pointer(t)) {
-                ss << "edu::guard::ptr_guard_t<" << clang_getPointeeType(t) << "> " << spelling(var);
-            } else if(is_empty_array(t)) {
-                ss << "edu::guard::ptr_guard_t<" << clang_getElementType(t) << "> " << spelling(var);
-            } else if(::is_array(t)) {
-                vector<llong> dims = get_array_dims(t);
-                if(dims.size() < 1 || dims.size() > 3) {
-                    cerr(var, "Unsuppored array dimensions");
-                }
-                ss << "edu::guard::array" << dims.size() << "_guard_t";
-                ss << "<" << get_array_type(t);
-                for(llong dim: dims) {
-                    ss << ", " << dim;
-                }
-                ss << "> ";
-                ss << spelling(var);
-                initializer_skip = dims.size();
-            } else {
-                ss << type(var) << " " << spelling(var);
-            }
-            vector<CXCursor> init = get_children(var, p_not(p_kind(CXCursor_AnnotateAttr)));
+            size_t initializer_skip;
+            generate_guarded_type(ss, var, &initializer_skip);
+            ss << " " << spelling(var);
+
+            vector<CXCursor> init = get_children(var);
             if(init.size() > initializer_skip) {
                 ss << " = " << SourceExtractor::extract(start(init[initializer_skip]), end(init.back()));
             }

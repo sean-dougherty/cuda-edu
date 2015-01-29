@@ -8,21 +8,13 @@
 #define __host__
 #define __constant__
 
-#ifndef EDU_CUDA_SHARED_STORAGE
-    #error "Cannot find definition of EDU_CUDA_SHARED_STORAGE"
-#endif
-
 #ifndef EDU_CUDA_COMPILE_PASS
     #error "EDU_CUDA_COMPILE_PASS not defined!"
 #endif
 
 #if EDU_CUDA_COMPILE_PASS == 0
-    // For the initial pass, we just have to define this away. We need the AST
-    // to do some transforms on shared variables first, otherwise we can get
-    // some illegal declarations, like "extern static".
+    // __shared__ will be removed by educc-ast for the second pass.
     #define __shared__
-#else
-    #define __shared__ EDU_CUDA_SHARED_STORAGE
 #endif
 
 #define EDU_CUDA_WARP_SIZE 32

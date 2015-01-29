@@ -1,7 +1,5 @@
 #pragma once
 
-#define EDU_CUDA_SHARED_STORAGE static edu_thread_local
-
 #include <educuda-api.h>
 #include <eduguard.h>
 #include <edupfm.h>
@@ -20,6 +18,7 @@
 #endif
 
 #define __edu_cuda_invoke_kernel(driver, x...) driver.invoke_kernel([=]{x;})
+#define __edu_cuda_shared_storage static edu_thread_local
 #define __edu_cuda_get_dynamic_shared() dynamic_shared
 #define __edu_cuda_decl_fls                                             \
     uint3 blockIdx = edu::cuda::current_cuda_thread()->blockIdx;     \

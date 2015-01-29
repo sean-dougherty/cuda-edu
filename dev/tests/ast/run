@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -e
+
+ast_cxxincludes="$1"
+
+rm -rf tmp
+mkdir tmp
+
+for path_cu in *.cu; do
+    echo "--- ${path_cu}" 
+    path_pat=${path_cu}.pat
+    path_cpp=tmp/${path_cu}.cpp
+
+    ../../bin/educc-ast ${path_cu} -I../../educc/ast ${ast_cxxincludes} > ${path_cpp}
+
+    # Note echo to ensure newline at end
+    (cat ${path_pat}; echo) | while read -r pat; do
+        if [ ! -z "$pat" ] && [ ${pat:0:1} != "#" ]; then
+            pat=${pat/^/^\\s*}
+            pat=${pat/\$/\\s*\$}
+            
+            if ! grep "$pat" $path_cpp &>/dev/null; then
+                echo "Failed finding pattern '${pat}' in ${path_cpp}" >&2
+                exit 1
+            fi
+        fi
+    done
+done

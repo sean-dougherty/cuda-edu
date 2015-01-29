@@ -140,7 +140,7 @@ void reset(stringstream &ss) {
 #define verbose(msg)
 //#define verbose(msg) cout << msg << endl
 #define err(msg) {cerr << msg << endl; exit(1);}
-#define cerr(cursor, msg) {err(start(cursor) << ": " << msg);}
+#define curserr(cursor, msg) {err(start(cursor) << ": " << msg);}
 
 typedef function<bool(CXCursor)> predicate_t;
 
@@ -396,10 +396,8 @@ struct SourceEditor {
     }
 };
 
-bool is_single_pointer(CXType type) {
-    CXType ptype = clang_getPointeeType(type);
-    return (ptype.kind != CXType_Invalid)
-        && (clang_getPointeeType(ptype).kind == CXType_Invalid);
+bool is_ref(CXType type) {
+    return spelling(type).find('&') != string::npos;
 }
 
 bool is_array(CXType type) {
@@ -407,9 +405,37 @@ bool is_array(CXType type) {
     return etype.kind != CXType_Invalid;
 }
 
+bool is_single_pointer(CXType type) {
+    CXType ptype = clang_getPointeeType(type);
+    return (ptype.kind != CXType_Invalid)
+        && (clang_getPointeeType(ptype).kind == CXType_Invalid)
+        && !is_ref(type)
+        && !::is_array(ptype);
+}
+
+bool is_pointer(CXType type) {
+    CXType ptype = clang_getPointeeType(type);
+    return (ptype.kind != CXType_Invalid);
+}
+
+bool is_shared(CXCursor c) {
+    return has_annotation(c, "__shared__");
+}
+
 bool is_empty_array(CXType type) {
     return ::is_array(type)
         && (clang_getNumElements(type) < 0);
+}
+
+CXType get_pointee_type(CXCursor c) {
+    CXType t = type(c);
+    if(is_single_pointer(t)) {
+        return clang_getPointeeType(t);
+    } else if(is_empty_array(t)) {
+        return clang_getElementType(t);
+    } else {
+        curserr(c, "Expected * or []");
+    }
 }
 
 vector<llong> get_array_dims(CXType type) {
