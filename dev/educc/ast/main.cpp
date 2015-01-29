@@ -197,8 +197,8 @@ void process_device_fls(SourceEditor &editor, vector<CXCursor> &func_decls) {
                 })) {
 
             CXCursor body = get_child(func_decl, p_kind(CXCursor_CompoundStmt));
-            CXCursor first_stmt = get_children(body, p_true).front();
-            editor.insert(start(first_stmt), "__edu_cuda_decl_fls;");
+            editor.insert(start(body), "{__edu_cuda_decl_fls;");
+            editor.insert(end(body), "}");
         }
     }
 }
