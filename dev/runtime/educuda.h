@@ -13,17 +13,24 @@
 #include <thread>
 #include <vector>
 
+#if EDU_CUDA_COMPILE_PASS == 0
+    // For the first pass, we just define globals.
+    edu::cuda::uint3 blockIdx;
+    edu::cuda::uint3 threadIdx;
+#endif
 
 #define __edu_cuda_invoke_kernel(driver, x...) driver.invoke_kernel([=]{x;})
+#define __edu_cuda_get_dynamic_shared() dynamic_shared
+#define __edu_cuda_decl_fls                                             \
+    uint3 blockIdx = edu::cuda::current_cuda_thread()->blockIdx;     \
+    uint3 threadIdx = edu::cuda::current_cuda_thread()->threadIdx;
+
+#define __syncthreads() edu::cuda::current_cuda_thread()->sync()
 
 namespace edu {
     namespace cuda {
 
-        edu_thread_local uint3 blockIdx;
-        edu_thread_local uint3 threadIdx;
         edu_thread_local guard::ptr_guard_t<char> dynamic_shared;
-
-#define __edu_cuda_get_dynamic_shared() dynamic_shared
 
         uint linearize(const dim3 &dim, const uint3 &idx) {
             return (dim.x*dim.y)*idx.z + idx.y*dim.x + idx.x;
@@ -45,7 +52,8 @@ namespace edu {
         //---
         //------------------------------------------------------------
         struct cuda_thread_t : microblanket::fiber_t<Cuda_Thread_Stack_Size> {
-            uint3 idx;
+            uint3 blockIdx;
+            uint3 threadIdx;
 
             enum status_t {
                 Birth,
@@ -55,15 +63,6 @@ namespace edu {
                 SyncWarp,
                 Exit
             } status = Birth;
-
-            static edu_thread_local cuda_thread_t *current;
-
-#define __syncthreads() edu::cuda::cuda_thread_t::current->sync()
-
-            void set_current() {
-                threadIdx = idx;
-                current = this;
-            }
 
             void sync() {
                 assert(status == Run);
@@ -80,22 +79,23 @@ namespace edu {
             void resume() {
                 assert( (status == Sync) || (status == SyncWarp) || (status == Spawn));
                 status = Run;
-                set_current();
                 microblanket::fiber_t<Cuda_Thread_Stack_Size>::resume();
             }
 
-            void run(uint3 idx_, function<void()> enter_kernel) {
-                idx = idx_;
+            void run(uint3 blockIdx_, uint3 threadIdx_, function<void()> enter_kernel) {
+                blockIdx = blockIdx_;
+                threadIdx = threadIdx_;
                 status = Spawn;
                 yield();
                 status = Run;
-                set_current();
                 enter_kernel();
                 status = Exit;
             }
         };        
 
-        edu_thread_local cuda_thread_t *cuda_thread_t::current = nullptr;
+        cuda_thread_t *current_cuda_thread() {
+            return microblanket::blanket_t<cuda_thread_t>::current_fiber();
+        }
 
         //------------------------------------------------------------
         //---
@@ -169,7 +169,7 @@ namespace edu {
                 cuda::blockDim = blockDim;
 
                 mem::set_space(mem::MemorySpace_Device);
-                guard::set_write_callback([](){cuda_thread_t::current->sync_warp();});
+                guard::set_write_callback([](){current_cuda_thread()->sync_warp();});
 
                 const unsigned nos_threads = pfm::get_thread_count();                
                 const unsigned nblocks = gridDim.x * gridDim.y * gridDim.z;
@@ -231,7 +231,7 @@ namespace edu {
                 microblanket::blanket_t<cuda_thread_t> cuda_threads{ncuda_threads};
 
                 for(size_t iblock = iblock_start; iblock < iblock_end; iblock++) {
-                    blockIdx = delinearize(cuda::gridDim, iblock);
+                    uint3 blockIdx = delinearize(cuda::gridDim, iblock);
                     block_state_t block_state{ncuda_threads};
 
                     cuda_threads.clear();
@@ -240,9 +240,9 @@ namespace edu {
                         for(tIdx.y = 0; tIdx.y < cuda::blockDim.y; tIdx.y++) {
                             for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
                                 cuda_threads.spawn(
-                                    [tIdx, enter_kernel]
+                                    [blockIdx, tIdx, enter_kernel]
                                     (cuda_thread_t *cuda_thread) {
-                                        cuda_thread->run(tIdx, enter_kernel);
+                                        cuda_thread->run(blockIdx, tIdx, enter_kernel);
                                     });
                             }
                         }

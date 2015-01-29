@@ -2,6 +2,7 @@
 
 void process_parm_decl(SourceEditor &editor, CXCursor decl);
 void process_var_decls(SourceEditor &editor, CXCursor decl);
+void process_device_fls(SourceEditor &editor, vector<CXCursor> &decls);
 void process_globals(SourceEditor &editor, CXCursor tu, vector<CXCursor> &decls);
 
 //------------------------------------------------------------
@@ -11,9 +12,15 @@ void process_globals(SourceEditor &editor, CXCursor tu, vector<CXCursor> &decls)
 //------------------------------------------------------------
 int main(int argc, const char **argv) {
     if(argc < 3) {
-        err("usage: educc-ast path_cpp clang_args...");
+        err("usage: educc-ast [--dump-ast] path_cpp clang_args...");
     }
+    bool dump_ast = false;
+
     int argi = 1;
+    if(0 == strcmp(argv[argi], "--dump-ast")) {
+        argi++;
+        dump_ast = true;
+    }
     string path_in = argv[argi++];
 
     vector<const char *> clang_args;
@@ -30,6 +37,11 @@ int main(int argc, const char **argv) {
                                                                      clang_args.data(),
                                                                      0, nullptr);
     CXCursor cursor = clang_getTranslationUnitCursor(tu);
+
+    if(dump_ast) {
+        dump_tree(cursor);
+        exit(0);
+    }
 
     SourceEditor editor;
 
@@ -51,6 +63,16 @@ int main(int argc, const char **argv) {
                 process_var_decls(editor, decl);
             }
         }
+    }
+
+    // Inject fiber-local declarations in all __device__ and __global__ functions
+    {
+        vector<CXCursor> func_decls = get_children(cursor, [&path_in](CXCursor c) {
+                return (kind(c) == CXCursor_FunctionDecl)
+                && (has_annotation(c, "__device__") || has_annotation(c, "__global__"))
+                && (file_location(start(c)).path == path_in);
+            });
+        process_device_fls(editor, func_decls);
     }
 
     // Register all global variables (for e.g. memcpyToSymbol)
@@ -158,6 +180,27 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
     }
 
     editor.replace(start(decl), end(decl), ss.str());
+}
+
+//------------------------------------------------------------
+//---
+//--- process_device_fls()
+//---
+//--- Inject local variables holding fiber-local values.
+//---
+//------------------------------------------------------------
+void process_device_fls(SourceEditor &editor, vector<CXCursor> &func_decls) {
+    for(CXCursor func_decl: func_decls) {
+        if(has_descendant(func_decl, [](CXCursor c) {
+                    return (kind(c) == CXCursor_DeclRefExpr)
+                        && ((spelling(c) == "threadIdx") || (spelling(c) == "blockIdx"));
+                })) {
+
+            CXCursor body = get_child(func_decl, p_kind(CXCursor_CompoundStmt));
+            CXCursor first_stmt = get_children(body, p_true).front();
+            editor.insert(start(first_stmt), "__edu_cuda_decl_fls;");
+        }
+    }
 }
 
 //------------------------------------------------------------

@@ -2,6 +2,8 @@ mymp/
 mp/**/mp
 mp/**/.mp*
 dev/tests/**/main
+examples/**/mp
+examples/**/.mp*
 Makefile.conf
 tmp
 *~

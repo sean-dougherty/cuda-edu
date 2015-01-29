@@ -225,6 +225,21 @@ bool has_child(CXCursor cursor,
     return result;
 }
 
+bool has_descendant(CXCursor cursor,
+                    predicate_t predicate) {
+    bool result = false;
+    visit(cursor,
+          [predicate, &result](CXCursor cursor) {
+              if(predicate(cursor)) {
+                  result = true;
+                  return CXChildVisit_Break;
+              } else {
+                  return CXChildVisit_Recurse;
+              }
+          });
+    return result;
+}
+
 bool has_annotation(CXCursor cursor, const string &annspelling) {
     return has_child(cursor, [&annspelling](CXCursor c) {
             return (c.kind == CXCursor_AnnotateAttr)
