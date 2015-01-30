@@ -22,7 +22,7 @@ function find_program() {
 
     for x in ${candidates}; do
         if which $x &>/dev/null; then
-            result=$x
+            result=$(which $x)
             break
         fi
     done
@@ -35,6 +35,22 @@ function find_program() {
     echo "${result}"
 }
 
+function find_latest_version_dir() {
+    local description="$1"
+    local pattern="$2"
+    local result=""
+
+    printf "Searching for ${description}... " > /dev/tty
+    result=$(ls -vd ${pattern} | tail -1)
+
+    if [ -z "${result}" ]; then
+        err "Cannot locate ${find_path}"
+    fi
+    printf "OK: ${result}\n" > /dev/tty
+    
+    echo "${result}"
+}
+
 function find_file() {
     local description="$1"
     local subpath="$2"
@@ -43,12 +59,14 @@ function find_file() {
     local result=""
 
     printf "Searching for ${description}... " > /dev/tty
-    if [ -f "${sane_location}/${subpath}" ]; then
+    if [ ! -z "${sane_location}" ] && [ -f "${sane_location}/${subpath}" ]; then
         result="${sane_location}/${subpath}"
     else
-        result=$(locate "${subpath}" | tail -1)
+        # First try locate, since it's faster.
+        result=$(locate "${find_root}/*/${subpath}" | tail -1)
         if [ -z "${result}" ]; then
-            result=$(find "${find_root}" -path "*/${subpath}" | tail -1)
+            # Maybe the locate database isn't complete... fall back to find.
+            result=$(find -L "${find_root}" -path "*/${subpath}" | tail -1)
         fi
     fi
 

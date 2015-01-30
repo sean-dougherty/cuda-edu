@@ -14,8 +14,7 @@ clang_include=__configure_clang_include__
 clang_lib=__configure_clang_lib__
 # Flags passed to educc. On Cygwin, must provide includes for GCC headers.
 # For Linux/Mac, shouldn't need to have anything
-# Example: -I/usr/lib/gcc/i686-pc-cygwin/4.9.2/include/c++ -I/usr/lib/gcc/i686-pc-cygwin/4.9.2/include/c++/i686-pc-cygwin/ -I/usr/lib/gcc/i686-pc-cy\
-gwin/4.9.2/include
+# Example: -I/usr/lib/gcc/i686-pc-cygwin/4.9.2/include/c++ -I/usr/lib/gcc/i686-pc-cygwin/4.9.2/include/c++/i686-pc-cygwin/ -I/usr/lib/gcc/i686-pc-cygwin/4.9.2/include
 AST_CXXINCLUDES=__configure_ast_cxxincludes__
 ###########################################
 
