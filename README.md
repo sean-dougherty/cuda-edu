@@ -32,4 +32,4 @@ Please see the page for your OS:
 
 * [Mac installation](https://github.com/sean-dougherty/cuda-edu/wiki/Getting-Started-on-Mac)
 
-* [Window installation](https://github.com/sean-dougherty/cuda-edu/wiki/Getting-Started-on-Windows)
+* [Windows installation](https://github.com/sean-dougherty/cuda-edu/wiki/Getting-Started-on-Windows)
