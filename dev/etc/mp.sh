@@ -5,7 +5,7 @@ set -e
 function usage() {
 ################################################################################
     cat <<EOF
-usage: ./run [-gsh] data_index
+usage: ./run [-gpsh] data_index
 
 DESCRIPTION
    Compiles and executes mp.cu for the given data_index. data_index may be an
