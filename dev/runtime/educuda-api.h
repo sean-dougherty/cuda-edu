@@ -56,15 +56,14 @@ namespace edu {
         typedef unsigned int uint;
 
         template<typename T>
-            struct vec3 {
-                T x, y, z;
+        struct vec3 {
+            T x, y, z;
 
             vec3() : vec3(0,0,0) {}
 
-            vec3(T x_, T y_ = 1, T z_ = 1)
-            : x(x_), y(y_), z(z_) {
+            vec3(T x_, T y_ = 1, T z_ = 1) : x(x_), y(y_), z(z_) {
             }
-            };
+        };
 
         typedef vec3<uint> uint3;
         typedef vec3<uint> dim3;

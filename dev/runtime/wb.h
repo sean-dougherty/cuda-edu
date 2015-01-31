@@ -1,6 +1,7 @@
 #pragma once
 
 #include <educuda.h>
+#include <edudb.h>
 #include <eduguard.h>
 #include <edumem.h>
 #include <eduutil.h>

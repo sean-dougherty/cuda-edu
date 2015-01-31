@@ -13,6 +13,7 @@ integer or 'all'.
 
 OPTIONS
   -g     Run with debugger
+  -p     Disable debugger plugin
   -s     Using only 1 OS thread
   -h     Show this message
 
@@ -20,25 +21,50 @@ EXAMPLES
   Run against dataset 0:
      ./run 0
 
-  Run against dataset 1 using debugger and single-threaded:
-     ./run -gs 0
+  Run against dataset 1 using debugger:
+     ./run -g 1
+
+  Run against dataset 1 using debugger without plugin:
+     ./run -gp 1
+
 EOF
     exit 1
 }
 
-CMD=./mp
+################################################################################
+#
+# Locate install dir
+#
+################################################################################
+EDUDIR=$PWD
+while [ ! -d $EDUDIR/dev/db ] || [ ! -d $EDUDIR/dev/runtime ]; do
+    EDUDIR=$(dirname $EDUDIR)
+    
+    if [ -z "$EDUDIR" ] || [ "$EDUDIR" == "/" ]; then
+        echo "Failed determining cuda-edu install dir!" >&2
+        exit 1
+    fi
+done
 
-while getopts "gsh" opt; do
+################################################################################
+#
+# Process options
+#
+################################################################################
+opt_debugger=false
+opt_single_threaded=false
+opt_disable_plugin=false
+
+while getopts "gsph" opt; do
     case $opt in
         g)
-            if [ $(uname) == "Darwin" ]; then
-                CMD="lldb ./mp"
-            else
-                CMD="gdb --args ./mp"
-            fi
+            opt_debugger=true
             ;;
         s)
-            export EDU_CUDA_THREAD_COUNT=1
+            opt_single_threaded=true
+            ;;
+        p)
+            opt_disable_plugin=true
             ;;
         *)
             usage
@@ -46,14 +72,49 @@ while getopts "gsh" opt; do
     esac
 done
 
+single_threaded=false
+
+if $opt_debugger; then
+    if [ $(uname) == "Darwin" ]; then
+        CMD="lldb ./mp"
+    else
+        if $opt_disable_plugin; then
+            CMD="gdb --args ./mp"
+        else
+            CMD="gdb -ex 'source $EDUDIR/dev/db/gdb-plugin.py' --args ./mp"
+            single_threaded=true
+        fi
+    fi
+else
+    CMD=./mp
+fi
+
+if $opt_single_threaded; then
+    single_threaded=true
+fi
+
+if $single_threaded; then
+    export EDU_CUDA_THREAD_COUNT=1
+fi
+
 shift $((OPTIND-1))
 
 if [ $# == 0 ] && [ -d data ]; then
     usage
 fi
 
+################################################################################
+#
+# Build
+#
+################################################################################
 make
 
+################################################################################
+#
+# Run
+#
+################################################################################
 if [ -d data ]; then
     datasets=${1-all}
 
@@ -66,8 +127,8 @@ if [ -d data ]; then
         echo "--- TESTING DATASET $x"
         echo "---"
 
-        $CMD $x
+        eval $CMD $x
     done
 else
-    $CMD
+    eval $CMD
 fi

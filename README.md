@@ -33,13 +33,14 @@ For Window installation instructions, please see [Getting Started on Windows](#g
 
 # Getting Started on Linux
 
-*cuda-edu on Linux requires libclang, GNU Make, and a C++ compiler with full c++11 support (e.g. g++ 4.8 or higher).*
+*cuda-edu on Linux requires libclang, GNU Make, and a C++ compiler with full c++11 support (e.g. g++ 4.8 or higher).
+The gdb plugin requires python 3.*
 
-## Install git, compiler, and libclang ##
+## Install git, compiler, python 3, and libclang ##
 *These instructions are for an Ubuntu system. You may need to do something slightly different
 for your distro.*
 ```
-sudo apt-get install git g++ libclang-dev
+sudo apt-get install git g++ python3 libclang-dev
 ```
 
 The remaining steps are in the section [Getting Started on POSIX](#getting-started-on-posix).
@@ -65,7 +66,7 @@ First, install [Cygwin](https://cygwin.com/install.html) (direct link to 32-bit 
 Only the 32-bit version has been tested, so it is recommended you stick with that for now.
 Once you have gone through the installation steps of choosing a server and selecting an install directory,
 you'll be allowed to select which packages to install. At a minimum, you'll need to install:
-g++, libclang-devel, make, and git. It is also recommended that you install gdb for debugging. It
+**g++, libclang-devel, make, and git**. It is also recommended that you install **gdb and python 3** for debugging. It
 is recommended that you select the option to create a shortcut in your start menu.
 
 Once you have installed those packages, you should be able to start the *Cygwin Terminal* from

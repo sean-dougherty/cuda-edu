@@ -75,6 +75,10 @@ namespace edu {
                 yield();
             }
 
+            void yield() {
+                microblanket::fiber_t<Cuda_Thread_Stack_Size>::yield();
+            }
+
             void resume() {
                 assert( (status == Sync) || (status == SyncWarp) || (status == Spawn));
                 status = Run;
@@ -204,11 +208,17 @@ namespace edu {
                         }
                     };
 
-                    threads.push_back(unique_ptr<thread>(new thread(osthread_task)));
+                    if(nos_threads == 1) {
+                        osthread_task();
+                    } else {
+                        threads.push_back(unique_ptr<thread>(new thread(osthread_task)));
+                    }
                 }
 
-                for(auto &t: threads) {
-                    t->join();
+                if(nos_threads > 1) {
+                    for(auto &t: threads) {
+                        t->join();
+                    }
                 }
 
                 if(dynamic_shared_size) {
