@@ -245,9 +245,9 @@ namespace edu {
 
                     cuda_threads.clear();
 
-                    for(uint3 tIdx = {0,0,0}; tIdx.x < cuda::blockDim.x; tIdx.x++) {
+                    for(uint3 tIdx = {0,0,0}; tIdx.z < cuda::blockDim.z; tIdx.z++) {
                         for(tIdx.y = 0; tIdx.y < cuda::blockDim.y; tIdx.y++) {
-                            for(tIdx.z = 0; tIdx.z < cuda::blockDim.z; tIdx.z++) {
+                            for(tIdx.x = 0; tIdx.x < cuda::blockDim.x; tIdx.x++) {
                                 cuda_threads.spawn(
                                     [blockIdx, tIdx, enter_kernel]
                                     (cuda_thread_t *cuda_thread) {
