@@ -35,22 +35,6 @@ function find_program() {
     echo "${result}"
 }
 
-function find_latest_version_dir() {
-    local description="$1"
-    local pattern="$2"
-    local result=""
-
-    printf "Searching for ${description}... " > /dev/tty
-    result=$(ls -vd ${pattern} | tail -1)
-
-    if [ -z "${result}" ]; then
-        err "Cannot locate ${find_path}"
-    fi
-    printf "OK: ${result}\n" > /dev/tty
-    
-    echo "${result}"
-}
-
 function find_file() {
     local description="$1"
     local subpath="$2"
