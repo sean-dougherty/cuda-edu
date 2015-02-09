@@ -1,0 +1,1 @@
+../../dev/etc/mp.mak

@@ -39,18 +39,27 @@ namespace edu {
                         return unique_ptr<char>(strdup(candidate.c_str()));
                     }
                 }
-                edu_err("Cannot locate valid file at " << base << ".*");
+                return nullptr;
             }
 
             char *get_input_path(int index) {
                 if( (index >= (int)input_paths.size()) || !input_paths[index] ) {
-                    string base;
-                    {
-                        stringstream ss;
-                        ss << data_dir() << "/input" << index;
-                        base = ss.str();
+                    unique_ptr<char> path;
+                    string base = data_dir() + "/input";
+                    if(index == 0) {
+                        // Might not have '0' in name.
+                        path = find_path(base);
                     }
-                    unique_ptr<char> path = find_path(base);
+                    if( (index != 0) || !path) {
+                        // Append index
+                        stringstream ss;
+                        ss << base << index;
+                        base = ss.str();
+                        path = find_path(base);
+                        if(!path) {
+                            edu_err("Cannot locate valid file at " << base << ".*");
+                        }
+                    }
                     if((int)input_paths.size() <= index) {
                         input_paths.resize(index+1);
                     }
@@ -61,9 +70,12 @@ namespace edu {
             }
             char *get_output_path() {
                 if(!output_path) {
-                    stringstream ss;
-                    ss << data_dir() << "/output.raw";
-                    output_path = find_path(data_dir()+"/output");
+                    string base = data_dir()+"/output";
+                    output_path = find_path(base);
+                    if(!output_path) {
+                        edu_err("Cannot locate valid file at " << base << ".*");
+                    }
+
                 }
                 return output_path.get();
             }
@@ -276,7 +288,7 @@ namespace edu {
         float *wbImage_getData(wbImage_t &image) {
             return image.pixels;
         }
-        wbImage_t wbImport(char *f) {
+        wbImage_t wbImport(const char *f) {
             return ppm::parse(f);
         }
 
@@ -284,11 +296,11 @@ namespace edu {
             return args.get_input_path(index);
         }
 
-        void *wbImport(char *f, int *length) {
+        void *wbImport(const char *f, int *length) {
             return read_data(f, length);
         }
 
-        void *wbImport(char *f, int *rows, int *cols) {
+        void *wbImport(const char *f, int *rows, int *cols) {
             return read_data(f, rows, cols);
         }
 
