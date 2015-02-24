@@ -216,6 +216,15 @@ void process_var_decls(SourceEditor &editor, CXCursor decl) {
             ss << " " << spelling(var);
 
             vector<CXCursor> init = get_children(var);
+
+            // Skip any leading type references
+            for( ;
+                 (initializer_skip < init.size())
+                     && (kind(init[initializer_skip]) == CXCursor_TypeRef);
+                 initializer_skip++) {
+            }
+
+            // Now generate the initializer, if any.
             if(init.size() > initializer_skip) {
                 ss << " = " << SourceExtractor::extract(start(init[initializer_skip]), end(init.back()));
             }

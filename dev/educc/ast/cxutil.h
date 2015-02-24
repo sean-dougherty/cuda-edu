@@ -255,7 +255,7 @@ void dump_tree(CXCursor cursor, string indent = "") {
     cout << indent << str(kind(cursor)) << "  " << str(cursor);
     auto children = get_children(cursor);
     if(children.size()) {
-        cout << " {" << endl;
+        cout << " { " << get_extent(cursor) << endl;
         for(auto &c: children) {
             dump_tree(c, indent+"~~");
         }

@@ -4,6 +4,7 @@
 
 ^edu::guard::ptr_guard_t<int> p0;$
 ^edu::guard::ptr_guard_t<const int> p1 = &s1;$
+^edu::guard::ptr_guard_t<int> p2 = (int \*)&s2;$
 
 
 ^edu::guard::array1_guard_t<int, 5> a1;$
@@ -13,3 +14,7 @@
 ^edu::guard::ptr_guard_t<int> es1 = (int\*)__edu_cuda_get_dynamic_shared();$
 
 ^__edu_cuda_shared_storage edu::guard::array1_guard_t<int, 5> __edu_cuda_shared_ss0;edu::guard::array1_guard_t<int, 5> &ss0 = __edu_cuda_shared_ss0;$
+
+^int3 v0;$
+
+^edu::guard::ptr_guard_t<int3> pv0 = (int3 \*)&v0;$
