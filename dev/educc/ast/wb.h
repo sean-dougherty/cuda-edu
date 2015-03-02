@@ -97,7 +97,7 @@ int2 make_int2(int x, int y) { return {x,y}; }
 struct int3 { int x, y, z; };
 int3 make_int3(int x, int y, int z) { return {x,y,z}; }
 struct int4 { int x, y, z, w; };
-int4 make_int4( int x,  int y,  int z,  int w) { return {x,y,z,w}; }
+int4 make_int4(int x, int y, int z, int w) { return {x,y,z,w}; }
 
 struct uint1 { unsigned int x; };
 uint1 make_uint1(unsigned int x) { return {x}; }
