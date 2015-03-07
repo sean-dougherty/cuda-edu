@@ -193,7 +193,9 @@ namespace edu {
                 for(unsigned ithread = 0; ithread < nos_threads; ithread++) {
 
                     unsigned iblock_start = ithread * blocks_per_osthread;
-                    unsigned iblock_end = min(nblocks, iblock_start + nblocks);
+                    unsigned iblock_end = min(nblocks,
+                                              ithread == nos_threads - 1 ?
+                                              nblocks : iblock_start + blocks_per_osthread);
 
                     auto osthread_task = [=]() {
                         if(dynamic_shared_size) {
