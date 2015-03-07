@@ -177,7 +177,7 @@ namespace edu {
                 const unsigned nos_threads = pfm::get_thread_count();                
                 const unsigned nblocks = gridDim.x * gridDim.y * gridDim.z;
                 const unsigned ncuda_threads = blockDim.x * blockDim.y * blockDim.z;
-                const unsigned blocks_per_osthread = nblocks / nos_threads;
+                const unsigned blocks_per_osthread = max(1u, nblocks / nos_threads);
 
                 if(dynamic_shared_size) {
                     all_dynamic_shared.resize(nos_threads);
@@ -193,7 +193,7 @@ namespace edu {
                 for(unsigned ithread = 0; ithread < nos_threads; ithread++) {
 
                     unsigned iblock_start = ithread * blocks_per_osthread;
-                    unsigned iblock_end = (ithread == nos_threads - 1) ? nblocks : iblock_start + nblocks;
+                    unsigned iblock_end = min(nblocks, iblock_start + nblocks);
 
                     auto osthread_task = [=]() {
                         if(dynamic_shared_size) {
