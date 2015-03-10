@@ -46,22 +46,22 @@ uint3 threadIdx;
 uint3 blockIdx;
 
 struct float1 { float x; };
-float1 make_float1(float x) { return {x}; }
+float1 make_float1(float x);
 struct float2 { float x, y; };
-float2 make_float2(float x, float y) { return {x,y}; }
+float2 make_float2(float x, float y);
 struct float3 { float x, y, z; };
-float3 make_float3(float x, float y, float z) { return {x,y,z}; }
+float3 make_float3(float x, float y, float z);
 struct float4 { float x, y, z, w; };
-float4 make_float4(float x, float y, float z, float w) { return {x,y,z,w}; }
+float4 make_float4(float x, float y, float z, float w);
 
 struct int1 { int x; };
-int1 make_int1(int x) { return {x}; }
+int1 make_int1(int x);
 struct int2 { int x, y; };
-int2 make_int2(int x, int y) { return {x,y}; }
+int2 make_int2(int x, int y);
 struct int3 { int x, y, z; };
-int3 make_int3(int x, int y, int z) { return {x,y,z}; }
+int3 make_int3(int x, int y, int z);
 struct int4 { int x, y, z, w; };
-int4 make_int4(int x, int y, int z, int w) { return {x,y,z,w}; }
+int4 make_int4(int x, int y, int z, int w);
 
 struct cudaDeviceProp {
     char name[256];
@@ -88,7 +88,7 @@ struct cudaDeviceProp {
 enum cudaError_t {
     cudaSuccess
 };
-
+const char *cudaGetErrorString(...);
 void __device__ __syncthreads();
 cudaError_t cudaGetDeviceCount(...);
 cudaError_t cudaGetDeviceProperties(...);
@@ -97,8 +97,9 @@ cudaError_t cudaFree(...);
 cudaError_t cudaMemcpy(...);
 cudaError_t cudaMemcpyToSymbol(...);
 cudaError_t cudaMemset(...);
-cudaError_t cudaDeviceSynchronize(...);
+cudaError_t cudaGetLastError();
 cudaError_t cudaThreadSynchronize(...);
+cudaError_t cudaDeviceSynchronize(...);
 #define cudaMemcpyHostToDevice 0
 #define cudaMemcpyDeviceToHost 0
 #define min(a,b) a
