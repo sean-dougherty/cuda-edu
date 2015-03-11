@@ -101,6 +101,17 @@ vector<kernel_call_location> find_kernel_calls(const string &src) {
             break;
         }
 
+        unsigned triple_bracket_close = src.find(">>>", loc.start);
+        if(triple_bracket_close > loc.end) {
+            pos += 3;
+            goto next;
+        }
+        unsigned lparen = src.find("(", triple_bracket_close);
+        if(lparen > loc.end) {
+            pos += 3;
+            goto next;
+        }
+
         result.push_back(loc);
         pos = loc.end;
     }
